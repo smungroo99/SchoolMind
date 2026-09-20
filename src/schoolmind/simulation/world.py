@@ -20,17 +20,20 @@ class World:
                 random.uniform(0, self.config.height),
             )
 
-            speed = random.uniform(
+            target_speed = random.uniform(
                 self.config.min_fish_speed,
                 self.config.max_fish_speed,
             )
 
             fish = Fish(
                 position=position,
-                speed=speed,
+                target_speed=target_speed,
+                max_speed=self.config.max_fish_speed,
+                max_acceleration=self.config.max_fish_acceleration,
                 max_turn_rate=self.config.max_turn_rate,
                 world_width=self.config.width,
                 world_height=self.config.height,
+                random_perturbation=self.config.random_perturbation,
             )
 
             self.fish.append(fish)
