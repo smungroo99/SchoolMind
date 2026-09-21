@@ -4,7 +4,7 @@ import pygame
 
 from schoolmind.simulation.config import SimulationConfig
 from schoolmind.simulation.fish import Fish
-
+from schoolmind.behavior.boids import calculate_desired_direction
 
 class World:
     def __init__(self, config: SimulationConfig) -> None:
@@ -39,8 +39,32 @@ class World:
             self.fish.append(fish)
 
     def update(self, dt: float) -> None:
+        desired_directions: list[pygame.Vector2 | None] = []
+
+        # First calculate every fish's decision using
+        # the current world state.
         for fish in self.fish:
-            fish.update(dt)
+            desired_direction = calculate_desired_direction(
+                fish=fish,
+                all_fish=self.fish,
+                neighbor_radius=self.config.neighbor_radius,
+                separation_radius=self.config.separation_radius,
+                separation_weight=self.config.separation_weight,
+                alignment_weight=self.config.alignment_weight,
+                cohesion_weight=self.config.cohesion_weight,
+            )
+
+            desired_directions.append(desired_direction)
+
+        # Now update every fish.
+        for fish, desired_direction in zip(
+            self.fish,
+            desired_directions,
+        ):
+            fish.update(
+                dt,
+                desired_direction,
+            )
 
     def reset(self) -> None:
         self.fish.clear()
