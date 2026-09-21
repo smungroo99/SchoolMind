@@ -1,6 +1,6 @@
 import math
 import random
-
+from typing import Optional
 import pygame
 
 
@@ -38,7 +38,11 @@ class Fish:
         # Start already moving at the target speed.
         self.velocity = direction * self.target_speed
 
-    def update(self, dt: float) -> None:
+    def update(
+        self,
+        dt: float,
+        desired_direction: Optional[pygame.Vector2] = None,
+    ) -> None:
         """Update the fish for one simulation step."""
 
         # ---------------------------------------------------------
@@ -47,30 +51,35 @@ class Fish:
 
         current_direction = self.velocity.normalize()
 
-        if self.random_perturbation:
-            turn_amount = random.uniform(
-                -self.max_turn_rate,
-                self.max_turn_rate,
-            ) * dt
-        else:
-            turn_amount = 0.0
+        if desired_direction is None:
+            if self.random_perturbation:
+                turn_amount = random.uniform(
+                    -self.max_turn_rate,
+                    self.max_turn_rate,
+                ) * dt
+            else:
+                turn_amount = 0.0
 
-        desired_direction = current_direction.rotate_rad(turn_amount)
+            desired_direction = current_direction.rotate_rad(turn_amount)
+        else:
+            desired_direction = desired_direction.normalize()
 
         # ---------------------------------------------------------
-        # 2. Convert the desired direction into a desired velocity.
+        # 2. Convert desired direction into desired velocity.
         # ---------------------------------------------------------
 
         desired_velocity = desired_direction * self.target_speed
 
         # ---------------------------------------------------------
-        # 3. Steering is the velocity we want minus
-        #    the velocity we currently have.
+        # 3. Calculate how much velocity needs to change.
         # ---------------------------------------------------------
 
         steering = desired_velocity - self.velocity
 
-        # 4. Convert the desired velocity change into acceleration.
+        # ---------------------------------------------------------
+        # 4. Convert velocity change into acceleration.
+        # ---------------------------------------------------------
+
         acceleration = steering / dt
 
         if acceleration.length_squared() > 0:
@@ -80,7 +89,7 @@ class Fish:
                 acceleration.scale_to_length(self.max_acceleration)
 
         # ---------------------------------------------------------
-        # 5. Update velocity using acceleration.
+        # 5. Update velocity.
         # ---------------------------------------------------------
 
         self.velocity += acceleration * dt
@@ -94,7 +103,7 @@ class Fish:
                 self.velocity.scale_to_length(self.max_speed)
 
         # ---------------------------------------------------------
-        # 7. Update position using velocity.
+        # 7. Update position.
         # ---------------------------------------------------------
 
         self.position += self.velocity * dt
