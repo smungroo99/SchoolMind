@@ -2,7 +2,7 @@ import math
 import random
 from typing import Optional
 import pygame
-
+from schoolmind.simulation.physics import update_velocity
 
 class Fish:
     def __init__(
@@ -45,11 +45,10 @@ class Fish:
     ) -> None:
         """Update the fish for one simulation step."""
 
-        # ---------------------------------------------------------
-        # 1. Decide what direction we would like to move.
-        # ---------------------------------------------------------
-
-        current_direction = self.velocity.normalize()
+        if self.velocity.length_squared() == 0:
+            current_direction = pygame.Vector2(1, 0)
+        else:
+            current_direction = self.velocity.normalize()
 
         if desired_direction is None:
             if self.random_perturbation:
@@ -61,56 +60,17 @@ class Fish:
                 turn_amount = 0.0
 
             desired_direction = current_direction.rotate_rad(turn_amount)
-        else:
-            desired_direction = desired_direction.normalize()
 
-        # ---------------------------------------------------------
-        # 2. Convert desired direction into desired velocity.
-        # ---------------------------------------------------------
-
-        desired_velocity = desired_direction * self.target_speed
-
-        # ---------------------------------------------------------
-        # 3. Calculate how much velocity needs to change.
-        # ---------------------------------------------------------
-
-        steering = desired_velocity - self.velocity
-
-        # ---------------------------------------------------------
-        # 4. Convert velocity change into acceleration.
-        # ---------------------------------------------------------
-
-        acceleration = steering / dt
-
-        if acceleration.length_squared() > 0:
-            acceleration_length = acceleration.length()
-
-            if acceleration_length > self.max_acceleration:
-                acceleration.scale_to_length(self.max_acceleration)
-
-        # ---------------------------------------------------------
-        # 5. Update velocity.
-        # ---------------------------------------------------------
-
-        self.velocity += acceleration * dt
-
-        # ---------------------------------------------------------
-        # 6. Prevent velocity from exceeding maximum speed.
-        # ---------------------------------------------------------
-
-        if self.velocity.length_squared() > 0:
-            if self.velocity.length() > self.max_speed:
-                self.velocity.scale_to_length(self.max_speed)
-
-        # ---------------------------------------------------------
-        # 7. Update position.
-        # ---------------------------------------------------------
+        self.velocity = update_velocity(
+            velocity=self.velocity,
+            desired_direction=desired_direction,
+            target_speed=self.target_speed,
+            max_speed=self.max_speed,
+            max_acceleration=self.max_acceleration,
+            dt=dt,
+        )
 
         self.position += self.velocity * dt
-
-        # ---------------------------------------------------------
-        # 8. Wrap around world boundaries.
-        # ---------------------------------------------------------
 
         self._wrap_position()
 
