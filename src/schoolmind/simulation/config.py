@@ -26,7 +26,7 @@ class SimulationConfig:
     cohesion_weight: float = 0.8
 
     # Predators
-    predator_count: int = 2
+    predator_count: int = 5
     predator_max_speed: float = 170.0
     predator_max_acceleration: float = 400.0
     predator_detection_range: float = 250.0
@@ -34,3 +34,7 @@ class SimulationConfig:
     predator_avoidance_weight: float = 3.0
     predator_separation_radius: float = 50.0
     predator_separation_weight: float = 5.0
+
+    # Predator behavior
+    predator_spawn_pattern: str = "ring"  # Options: "random", "clustered", "ring", "opposite_sides"
+    predator_coordination_mode: str = "independent"  # Options: "coordinated", "independent"
