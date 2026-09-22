@@ -117,7 +117,7 @@ class World:
             )
 
             if pursuit is None:
-                combined = separation
+                combined = separation * self.config.predator_separation_weight
             else:
                 combined = (
                     pursuit
