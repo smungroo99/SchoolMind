@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 from typing import Optional
 import pygame
 
+from schoolmind.simulation.predator import Predator
+
 if TYPE_CHECKING:
     from schoolmind.simulation.fish import Fish
 
@@ -92,6 +94,49 @@ def calculate_cohesion(
 
     return _safe_normalize(direction_to_center)
 
+def calculate_predator_avoidance(
+    fish: Fish,
+    predators: list[Predator],
+    detection_range: float,
+) -> pygame.Vector2:
+    """Return a direction that pushes the fish away from predators."""
+
+    nearby_predators = get_nearby_predators(
+        fish,
+        predators,
+        detection_range,
+    )
+
+    force = pygame.Vector2()
+
+    for predator in nearby_predators:
+        offset = fish.position - predator.position
+        distance = offset.length()
+
+        if distance == 0:
+            continue
+
+        force += offset.normalize() / distance
+
+    return _safe_normalize(force)
+
+def get_nearby_predators(
+    fish: Fish,
+    predators: list[Predator],
+    detection_range: float,
+) -> list[Predator]:
+    """Return predators within the fish's threat range."""
+
+    nearby_predators: list[Predator] = []
+
+    for predator in predators:
+        distance = fish.position.distance_to(predator.position)
+
+        if distance <= detection_range:
+            nearby_predators.append(predator)
+
+    return nearby_predators
+
 
 def calculate_desired_direction(
     fish: Fish,
@@ -101,17 +146,20 @@ def calculate_desired_direction(
     separation_weight: float,
     alignment_weight: float,
     cohesion_weight: float,
+    predators: Optional[list[Predator]] = None,
+    predator_detection_range: float = 0.0,
+    predator_avoidance_weight: float = 0.0,
 ) -> Optional[pygame.Vector2]:
-    """Combine the three boids rules into one desired direction."""
+    """Combine schooling and predator-avoidance behavior."""
+
+    if predators is None:
+        predators = []
 
     neighbors = get_neighbors(
         fish,
         all_fish,
         neighbor_radius,
     )
-
-    if not neighbors:
-        return None
 
     separation = calculate_separation(
         fish,
@@ -126,10 +174,17 @@ def calculate_desired_direction(
         neighbors,
     )
 
+    predator_avoidance = calculate_predator_avoidance(
+        fish,
+        predators,
+        predator_detection_range,
+    )
+
     combined = (
         separation * separation_weight
         + alignment * alignment_weight
         + cohesion * cohesion_weight
+        + predator_avoidance * predator_avoidance_weight
     )
 
     if combined.length_squared() == 0:
