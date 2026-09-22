@@ -1,6 +1,7 @@
 import random
-
 import pygame
+import math
+import random
 
 from schoolmind.simulation.config import SimulationConfig
 from schoolmind.simulation.fish import Fish
@@ -49,9 +50,8 @@ class World:
 
     def _spawn_predators(self) -> None:
         for predator_id in range(self.config.predator_count):
-            position = pygame.Vector2(
-                random.uniform(0, self.config.width),
-                random.uniform(0, self.config.height),
+            position = self._get_predator_spawn_position(
+                predator_id
             )
 
             predator = Predator(
@@ -66,6 +66,70 @@ class World:
             )
 
             self.predators.append(predator)
+
+    def _get_predator_spawn_position(
+        self,
+        predator_id: int,
+    ) -> pygame.Vector2:
+        pattern = self.config.predator_spawn_pattern
+
+        if pattern == "random":
+            return pygame.Vector2(
+                random.uniform(0, self.config.width),
+                random.uniform(0, self.config.height),
+            )
+
+        center = pygame.Vector2(
+            self.config.width / 2,
+            self.config.height / 2,
+        )
+
+        if pattern == "clustered":
+            spread = 0.1 * min(
+                self.config.width,
+                self.config.height,
+            )
+
+            return pygame.Vector2(
+                center.x + random.uniform(-spread, spread),
+                center.y + random.uniform(-spread, spread),
+            )
+
+        if pattern == "opposite_sides":
+            x = (
+                0
+                if predator_id % 2 == 0
+                else self.config.width
+            )
+
+            y = random.uniform(
+                self.config.height * 0.25,
+                self.config.height * 0.75,
+            )
+
+            return pygame.Vector2(x, y)
+
+        if pattern == "ring":
+            predator_count = self.config.predator_count
+
+            angle = (
+                2 * math.pi * predator_id
+                / predator_count
+            )
+
+            radius = 0.35 * min(
+                self.config.width,
+                self.config.height,
+            )
+
+            return pygame.Vector2(
+                center.x + math.cos(angle) * radius,
+                center.y + math.sin(angle) * radius,
+            )
+
+        raise ValueError(
+            f"Unknown predator spawn pattern: {pattern}"
+        )
 
     def update(self, dt: float) -> None:
         self.elapsed_time += dt
@@ -100,12 +164,32 @@ class World:
         claimed_targets: set[Fish] = set()
 
         for predator in self.predators:
+            if (
+                self.config.predator_coordination_mode
+                == "coordinated"
+            ):
+                unavailable_targets = claimed_targets
+            elif (
+                self.config.predator_coordination_mode
+                == "independent"
+            ):
+                unavailable_targets = set()
+            else:
+                raise ValueError(
+                    "Unknown predator coordination mode: "
+                    f"{self.config.predator_coordination_mode}"
+                )
+
             predator.choose_target(
                 self.fish,
-                unavailable_targets=claimed_targets,
+                unavailable_targets=unavailable_targets,
             )
 
-            if predator.target is not None:
+            if (
+                self.config.predator_coordination_mode
+                == "coordinated"
+                and predator.target is not None
+            ):
                 claimed_targets.add(predator.target)
 
             pursuit = predator.get_desired_direction()
