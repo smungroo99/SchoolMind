@@ -6,7 +6,7 @@ from schoolmind.simulation.config import SimulationConfig
 from schoolmind.simulation.fish import Fish
 from schoolmind.simulation.predator import Predator
 from schoolmind.behavior.boids import calculate_desired_direction
-
+from schoolmind.behavior.predator import calculate_separation
 
 class World:
     def __init__(self, config: SimulationConfig) -> None:
@@ -97,11 +97,37 @@ class World:
         #    current world state.
         # ---------------------------------------------------------
         predator_desired_directions: list[pygame.Vector2 | None] = []
+        claimed_targets: set[Fish] = set()
 
         for predator in self.predators:
-            predator.choose_target(self.fish)
+            predator.choose_target(
+                self.fish,
+                unavailable_targets=claimed_targets,
+            )
 
-            desired_direction = predator.get_desired_direction()
+            if predator.target is not None:
+                claimed_targets.add(predator.target)
+
+            pursuit = predator.get_desired_direction()
+
+            separation = calculate_separation(
+                predator=predator,
+                predators=self.predators,
+                separation_radius=self.config.predator_separation_radius,
+            )
+
+            if pursuit is None:
+                combined = separation
+            else:
+                combined = (
+                    pursuit
+                    + separation * self.config.predator_separation_weight
+                )
+
+            if combined.length_squared() == 0:
+                desired_direction = None
+            else:
+                desired_direction = combined.normalize()
 
             predator_desired_directions.append(desired_direction)
 

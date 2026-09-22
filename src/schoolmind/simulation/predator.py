@@ -48,13 +48,31 @@ class Predator:
 
         self.velocity = direction * self.max_speed
 
-    def choose_target(self, fish: list["Fish"]) -> None:
-        """Choose the nearest fish within detection range."""
+    def choose_target(
+        self,
+        fish: list["Fish"],
+        unavailable_targets: Optional[set["Fish"]] = None,
+    ) -> None:
+        """Choose the nearest unclaimed fish within detection range."""
+
+        if unavailable_targets is None:
+            unavailable_targets = set()
+
+        candidates = [
+            candidate
+            for candidate in fish
+            if candidate not in unavailable_targets
+        ]
+
+        # If every visible fish is already claimed,
+        # allow target sharing as a fallback.
+        if not candidates:
+            candidates = fish
 
         nearest_fish = None
         nearest_distance = self.detection_range
 
-        for candidate in fish:
+        for candidate in candidates:
             distance = self.position.distance_to(candidate.position)
 
             if distance <= nearest_distance:
