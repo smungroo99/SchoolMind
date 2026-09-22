@@ -58,16 +58,22 @@ class Predator:
         if unavailable_targets is None:
             unavailable_targets = set()
 
-        candidates = [
+        visible_fish = [
             candidate
             for candidate in fish
+            if self.position.distance_to(candidate.position)
+            <= self.detection_range
+        ]
+
+        unclaimed_visible = [
+            candidate
+            for candidate in visible_fish
             if candidate not in unavailable_targets
         ]
 
-        # If every visible fish is already claimed,
-        # allow target sharing as a fallback.
-        if not candidates:
-            candidates = fish
+        # Prefer unique targets, but allow sharing when every
+        # visible fish is already claimed.
+        candidates = unclaimed_visible or visible_fish
 
         nearest_fish = None
         nearest_distance = self.detection_range
