@@ -21,6 +21,7 @@ class Predator:
         capture_radius: float,
         world_width: int,
         world_height: int,
+        rng: random.Random | None = None,
     ) -> None:
         self.id = predator_id
 
@@ -28,7 +29,6 @@ class Predator:
 
         self.max_speed = max_speed
         self.max_acceleration = max_acceleration
-
         self.detection_range = detection_range
         self.capture_radius = capture_radius
 
@@ -38,8 +38,10 @@ class Predator:
         self.target: Optional["Fish"] = None
         self.target_switches = 0
 
+        self.rng = rng if rng is not None else random.Random()
+
         # Start moving in a random direction.
-        angle = random.uniform(0, 2 * math.pi)
+        angle = self.rng.uniform(0, 2 * math.pi)
 
         direction = pygame.Vector2(
             math.cos(angle),

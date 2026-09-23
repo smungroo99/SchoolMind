@@ -26,7 +26,7 @@ class SimulationConfig:
     cohesion_weight: float = 0.8
 
     # Predators
-    predator_count: int = 5
+    predator_count: int = 2
     predator_max_speed: float = 170.0
     predator_max_acceleration: float = 400.0
     predator_detection_range: float = 250.0

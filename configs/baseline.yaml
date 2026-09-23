@@ -1,0 +1,18 @@
+experiment:
+  name: baseline_predator_avoidance
+  random_seed: 42
+  simulation_duration: 30.0
+  trials: 10
+
+simulation:
+  fish_count: 75
+  predator_count: 5
+
+  predator_max_speed: 170.0
+  predator_spawn_pattern: ring
+  predator_coordination_mode: independent
+
+  separation_weight: 1.5
+  alignment_weight: 1.0
+  cohesion_weight: 0.8
+  predator_avoidance_weight: 3.0
