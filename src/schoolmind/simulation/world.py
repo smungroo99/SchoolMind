@@ -301,7 +301,7 @@ class World:
             "time_elapsed": self.elapsed_time,
             "time_to_first_capture": self.first_capture_time,
             "time_to_extinction": self.extinction_time,
-            "active_predators": len(self.predators),
+            "predator_count": len(self.predators),
             "predator_target_switches": sum(
                 predator.target_switches
                 for predator in self.predators

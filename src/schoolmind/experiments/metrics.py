@@ -35,7 +35,7 @@ def calculate_trial_metrics(
         "time_to_extinction": metrics[
             "time_to_extinction"
         ],
-        "predator_count": metrics["active_predators"],
+        "predator_count": metrics["predator_count"],
         "predator_target_switches": metrics[
             "predator_target_switches"
         ],

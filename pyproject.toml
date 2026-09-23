@@ -7,7 +7,7 @@ name = "schoolmind"
 version = "0.1.0"
 description = "Multi-agent predator/prey research simulation"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.11"
 dependencies = [
     "pygame>=2.6.0",
     "PyYAML>=6.0",

@@ -6,7 +6,7 @@ experiment:
 
 simulation:
   fish_count: 75
-  predator_count: 5
+  predator_count: 1
 
   predator_max_speed: 170.0
   predator_spawn_pattern: ring
