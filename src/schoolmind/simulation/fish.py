@@ -1,8 +1,11 @@
 import math
 import random
 from typing import Optional
+
 import pygame
+
 from schoolmind.simulation.physics import update_velocity
+
 
 class Fish:
     def __init__(
@@ -15,9 +18,9 @@ class Fish:
         world_width: int,
         world_height: int,
         random_perturbation: bool = True,
+        rng: random.Random | None = None,
     ) -> None:
         self.position = position
-
         self.target_speed = target_speed
         self.max_speed = max_speed
         self.max_acceleration = max_acceleration
@@ -27,15 +30,16 @@ class Fish:
         self.world_width = world_width
         self.world_height = world_height
 
+        self.rng = rng if rng is not None else random.Random()
+
         # Start in a random direction.
-        angle = random.uniform(0, 2 * math.pi)
+        angle = self.rng.uniform(0, 2 * math.pi)
 
         direction = pygame.Vector2(
             math.cos(angle),
             math.sin(angle),
         )
 
-        # Start already moving at the target speed.
         self.velocity = direction * self.target_speed
 
     def update(
@@ -44,7 +48,6 @@ class Fish:
         desired_direction: Optional[pygame.Vector2] = None,
     ) -> None:
         """Update the fish for one simulation step."""
-
         if self.velocity.length_squared() == 0:
             current_direction = pygame.Vector2(1, 0)
         else:
@@ -52,7 +55,7 @@ class Fish:
 
         if desired_direction is None:
             if self.random_perturbation:
-                turn_amount = random.uniform(
+                turn_amount = self.rng.uniform(
                     -self.max_turn_rate,
                     self.max_turn_rate,
                 ) * dt

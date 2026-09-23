@@ -1,7 +1,6 @@
 import random
 import pygame
 import math
-import random
 
 from schoolmind.simulation.config import SimulationConfig
 from schoolmind.simulation.fish import Fish
@@ -10,15 +9,24 @@ from schoolmind.behavior.boids import calculate_desired_direction
 from schoolmind.behavior.predator import calculate_separation
 
 class World:
-    def __init__(self, config: SimulationConfig) -> None:
+    def __init__(
+        self,
+        config: SimulationConfig,
+        seed: int | None = None,
+    ) -> None:
         self.config = config
+        self.seed = seed
+        self.rng = random.Random(seed)
 
         self.fish: list[Fish] = []
         self.predators: list[Predator] = []
 
+        self.initial_fish_count = config.fish_count
+
         self.elapsed_time = 0.0
         self.fish_captured = 0
         self.first_capture_time: float | None = None
+        self.extinction_time: float | None = None
 
         self._spawn_fish()
         self._spawn_predators()
@@ -26,11 +34,11 @@ class World:
     def _spawn_fish(self) -> None:
         for _ in range(self.config.fish_count):
             position = pygame.Vector2(
-                random.uniform(0, self.config.width),
-                random.uniform(0, self.config.height),
+                self.rng.uniform(0, self.config.width),
+                self.rng.uniform(0, self.config.height),
             )
 
-            target_speed = random.uniform(
+            target_speed = self.rng.uniform(
                 self.config.min_fish_speed,
                 self.config.max_fish_speed,
             )
@@ -44,6 +52,7 @@ class World:
                 world_width=self.config.width,
                 world_height=self.config.height,
                 random_perturbation=self.config.random_perturbation,
+                rng=self.rng,
             )
 
             self.fish.append(fish)
@@ -63,6 +72,7 @@ class World:
                 capture_radius=self.config.predator_capture_radius,
                 world_width=self.config.width,
                 world_height=self.config.height,
+                rng=self.rng,
             )
 
             self.predators.append(predator)
@@ -75,8 +85,8 @@ class World:
 
         if pattern == "random":
             return pygame.Vector2(
-                random.uniform(0, self.config.width),
-                random.uniform(0, self.config.height),
+                self.rng.uniform(0, self.config.width),
+                self.rng.uniform(0, self.config.height),
             )
 
         center = pygame.Vector2(
@@ -91,8 +101,8 @@ class World:
             )
 
             return pygame.Vector2(
-                center.x + random.uniform(-spread, spread),
-                center.y + random.uniform(-spread, spread),
+                center.x + self.rng.uniform(-spread, spread),
+                center.y + self.rng.uniform(-spread, spread),
             )
 
         if pattern == "opposite_sides":
@@ -102,7 +112,7 @@ class World:
                 else self.config.width
             )
 
-            y = random.uniform(
+            y = self.rng.uniform(
                 self.config.height * 0.25,
                 self.config.height * 0.75,
             )
@@ -281,26 +291,36 @@ class World:
         if self.first_capture_time is None:
             self.first_capture_time = self.elapsed_time
 
+        if not self.fish and self.extinction_time is None:
+            self.extinction_time = self.elapsed_time
+
     def get_metrics(self) -> dict:
         return {
             "fish_alive": len(self.fish),
             "fish_captured": self.fish_captured,
             "time_elapsed": self.elapsed_time,
             "time_to_first_capture": self.first_capture_time,
-            "active_predators": len(self.predators),
+            "time_to_extinction": self.extinction_time,
+            "predator_count": len(self.predators),
             "predator_target_switches": sum(
                 predator.target_switches
                 for predator in self.predators
             ),
         }
 
-    def reset(self) -> None:
+    def reset(self, seed: int | None = None) -> None:
+        if seed is not None:
+            self.seed = seed
+
+        self.rng = random.Random(self.seed)
+
         self.fish.clear()
         self.predators.clear()
 
         self.elapsed_time = 0.0
         self.fish_captured = 0
         self.first_capture_time = None
+        self.extinction_time = None
 
         self._spawn_fish()
         self._spawn_predators()
