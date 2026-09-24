@@ -13,11 +13,11 @@ from schoolmind.experiments.results import (
     create_experiment_id,
     write_results,
 )
-from schoolmind.simulation.world import World
-
 from schoolmind.experiments.social_metrics import (
+    collect_individual_social_snapshot,
     collect_school_social_snapshot,
 )
+from schoolmind.simulation.world import World
 
 def get_trial_seed(
     base_seed: int,
@@ -62,11 +62,17 @@ def run_trial(
         .metrics_sample_interval
     )
 
-    social_time_series = [
+    school_social_time_series = [
         collect_school_social_snapshot(
             world
         )
     ]
+
+    individual_social_time_series = (
+        collect_individual_social_snapshot(
+            world
+        )
+    )
 
     next_sample_time = sample_interval
 
@@ -87,8 +93,14 @@ def run_trial(
             world.elapsed_time
             >= next_sample_time
         ):
-            social_time_series.append(
+            school_social_time_series.append(
                 collect_school_social_snapshot(
+                    world
+                )
+            )
+
+            individual_social_time_series.extend(
+                collect_individual_social_snapshot(
                     world
                 )
             )
@@ -97,24 +109,27 @@ def run_trial(
                 sample_interval
             )
 
-        # Once all fish have been captured,
-        # there is no reason to continue.
         if not world.fish:
             break
 
-    # Record the final simulation state when
-    # it was not already captured by the
-    # regular sampling interval.
+    # Always record the final state if it was not
+    # already captured by the regular sampling interval.
     if (
-        not social_time_series
+        not school_social_time_series
         or abs(
-            social_time_series[-1]["time"]
+            school_social_time_series[-1]["time"]
             - world.elapsed_time
         )
         > 1e-9
     ):
-        social_time_series.append(
+        school_social_time_series.append(
             collect_school_social_snapshot(
+                world
+            )
+        )
+
+        individual_social_time_series.extend(
+            collect_individual_social_snapshot(
                 world
             )
         )
@@ -123,8 +138,12 @@ def run_trial(
         "trial_index": trial_index,
         "seed": seed,
         "social_time_series": (
-            social_time_series
+            school_social_time_series
         ),
+        "individual_social_time_series": (
+            individual_social_time_series
+        ),
+        "capture_events": world.capture_events,
         **calculate_trial_metrics(world),
     }
 

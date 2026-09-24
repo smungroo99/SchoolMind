@@ -28,6 +28,8 @@ class World:
         self.first_capture_time: float | None = None
         self.extinction_time: float | None = None
 
+        self.capture_events: list[dict] = []
+
         self._spawn_fish()
         self._spawn_predators()
 
@@ -45,7 +47,7 @@ class World:
                 "Fish radius is too large for the world dimensions."
             )
 
-        for _ in range(self.config.fish_count):
+        for fish_id in range(self.config.fish_count):
             position = pygame.Vector2(
                 self.rng.uniform(min_x, max_x),
                 self.rng.uniform(min_y, max_y),
@@ -57,6 +59,7 @@ class World:
             )
 
             fish = Fish(
+                fish_id=fish_id,
                 position=position,
                 target_speed=target_speed,
                 max_speed=self.config.max_fish_speed,
@@ -69,9 +72,6 @@ class World:
                 radius=self.config.fish_radius,
                 boundary_margin=(
                     self.config.boundary_margin
-                ),
-                boundary_avoidance_weight=(
-                    self.config.boundary_avoidance_weight
                 ),
                 random_perturbation=(
                     self.config.random_perturbation
@@ -312,6 +312,15 @@ class World:
 
             if closest_fish is not None:
                 captured_fish.append(closest_fish)
+
+                self.capture_events.append(
+                    {
+                        "time": self.elapsed_time,
+                        "fish_id": closest_fish.fish_id,
+                        "predator_id": predator.id,
+                    }
+                )
+
                 predator.target = None
 
         if not captured_fish:
@@ -328,7 +337,10 @@ class World:
         if self.first_capture_time is None:
             self.first_capture_time = self.elapsed_time
 
-        if not self.fish and self.extinction_time is None:
+        if (
+            not self.fish
+            and self.extinction_time is None
+        ):
             self.extinction_time = self.elapsed_time
 
     def get_metrics(self) -> dict:
@@ -345,7 +357,10 @@ class World:
             ),
         }
 
-    def reset(self, seed: int | None = None) -> None:
+    def reset(
+        self,
+        seed: int | None = None,
+    ) -> None:
         if seed is not None:
             self.seed = seed
 
@@ -353,6 +368,7 @@ class World:
 
         self.fish.clear()
         self.predators.clear()
+        self.capture_events.clear()
 
         self.elapsed_time = 0.0
         self.fish_captured = 0

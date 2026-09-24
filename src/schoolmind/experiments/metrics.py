@@ -3,7 +3,6 @@ from typing import Any
 
 from schoolmind.simulation.world import World
 
-
 def calculate_trial_metrics(
     world: World,
 ) -> dict[str, Any]:
@@ -13,10 +12,13 @@ def calculate_trial_metrics(
 
     if initial_fish > 0:
         survival_rate = (
-            metrics["fish_alive"] / initial_fish
+            metrics["fish_alive"]
+            / initial_fish
         )
+
         capture_rate = (
-            metrics["fish_captured"] / initial_fish
+            metrics["fish_captured"]
+            / initial_fish
         )
     else:
         survival_rate = 0.0
@@ -29,18 +31,23 @@ def calculate_trial_metrics(
         "survival_rate": survival_rate,
         "capture_rate": capture_rate,
         "time_elapsed": metrics["time_elapsed"],
-        "time_to_first_capture": metrics[
-            "time_to_first_capture"
-        ],
-        "time_to_extinction": metrics[
-            "time_to_extinction"
-        ],
+        "time_to_first_capture": (
+            metrics["time_to_first_capture"]
+        ),
+        "time_to_extinction": (
+            metrics["time_to_extinction"]
+        ),
         "predator_count": metrics["predator_count"],
-        "predator_target_switches": metrics[
-            "predator_target_switches"
-        ],
+        "predator_target_switches": (
+            metrics["predator_target_switches"]
+        ),
+        "predator_spawn_pattern": (
+            world.config.predator_spawn_pattern
+        ),
+        "predator_coordination_mode": (
+            world.config.predator_coordination_mode
+        ),
     }
-
 
 def summarize_trials(
     trials: list[dict[str, Any]],

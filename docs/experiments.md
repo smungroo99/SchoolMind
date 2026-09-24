@@ -62,8 +62,6 @@ The result is transformed into the interval `[0, 1]`.
 0.5 → perpendicular directions
 1.0 → same direction
 
----
-
 ## Cohesion distance
 
 The local neighborhood centroid is calculated.

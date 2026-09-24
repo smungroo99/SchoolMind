@@ -15,7 +15,9 @@ from schoolmind.experiments.runner import (
 from schoolmind.experiments.social_metrics import (
     calculate_fish_social_state,
     calculate_school_social_metrics,
+    collect_individual_social_snapshot,
 )
+
 from schoolmind.simulation.config import (
     SimulationConfig,
 )
@@ -281,3 +283,65 @@ def test_social_metrics_csv_is_written(
         "polarization"
         in contents
     )
+
+def test_individual_social_snapshot() -> None:
+    world = make_world()
+
+    snapshots = (
+        collect_individual_social_snapshot(
+            world
+        )
+    )
+
+    assert len(snapshots) == 3
+
+    assert {
+        snapshot["fish_id"]
+        for snapshot in snapshots
+    } == {0, 1, 2}
+
+    assert all(
+        snapshot["time"] == 0.0
+        for snapshot in snapshots
+    )
+
+    assert all(
+        "neighbor_count" in snapshot
+        for snapshot in snapshots
+    )
+
+    assert all(
+        "alignment" in snapshot
+        for snapshot in snapshots
+    )
+
+    assert all(
+        "cohesion_distance" in snapshot
+        for snapshot in snapshots
+    )
+
+def test_capture_events_record_fish_and_predator() -> None:
+    config = SimulationConfig(
+        fish_count=1,
+        predator_count=1,
+    )
+
+    world = World(
+        config,
+        seed=42,
+    )
+
+    fish = world.fish[0]
+    predator = world.predators[0]
+
+    predator.position = fish.position.copy()
+
+    world._handle_captures()
+
+    assert len(world.capture_events) == 1
+
+    event = world.capture_events[0]
+
+    assert event["fish_id"] == fish.fish_id
+    assert event["predator_id"] == predator.id
+    assert event["time"] == world.elapsed_time

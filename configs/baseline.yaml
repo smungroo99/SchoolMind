@@ -1,16 +1,12 @@
 experiment:
-  name: iteration6_social_metrics
+  name: baseline_predator_avoidance
   random_seed: 42
   simulation_duration: 30.0
   trials: 10
-  metrics_sample_interval: 0.5
 
 simulation:
   fish_count: 75
-  predator_count: 2
-
-  boundary_margin: 100.0
-  boundary_avoidance_weight: 4.0
+  predator_count: 1
 
   predator_max_speed: 170.0
   predator_spawn_pattern: ring

@@ -63,7 +63,9 @@ def calculate_fish_social_state(
     alignment_scores: list[float] = []
 
     if fish.velocity.length_squared() > 0:
-        fish_direction = fish.velocity.normalize()
+        fish_direction = (
+            fish.velocity.normalize()
+        )
 
         for neighbor in neighbors:
             if (
@@ -76,8 +78,10 @@ def calculate_fish_social_state(
                 neighbor.velocity.normalize()
             )
 
-            cosine_similarity = fish_direction.dot(
-                neighbor_direction
+            cosine_similarity = (
+                fish_direction.dot(
+                    neighbor_direction
+                )
             )
 
             alignment_score = (
@@ -146,7 +150,9 @@ def calculate_school_social_metrics(
         calculate_fish_social_state(
             fish=current_fish,
             all_fish=fish,
-            neighbor_radius=world.config.neighbor_radius,
+            neighbor_radius=(
+                world.config.neighbor_radius
+            ),
         )
         for current_fish in fish
     ]
@@ -181,7 +187,9 @@ def calculate_school_social_metrics(
     cohesion_distances = [
         state["cohesion_distance"]
         for state in states
-        if state["cohesion_distance"] is not None
+        if state[
+            "cohesion_distance"
+        ] is not None
     ]
 
     isolated_fish_count = sum(
@@ -198,6 +206,7 @@ def calculate_school_social_metrics(
     # --------------------------------------------------------------
     # Polarization
     # --------------------------------------------------------------
+
     direction_sum = pygame.Vector2()
     moving_fish_count = 0
 
@@ -225,6 +234,7 @@ def calculate_school_social_metrics(
     # --------------------------------------------------------------
     # Dispersion
     # --------------------------------------------------------------
+
     school_centroid = pygame.Vector2()
 
     for current_fish in fish:
@@ -284,3 +294,34 @@ def collect_school_social_snapshot(
         "time": world.elapsed_time,
         **calculate_school_social_metrics(world),
     }
+
+
+def collect_individual_social_snapshot(
+    world: World,
+) -> list[dict[str, Any]]:
+    """
+    Collect one timestamped social-state record
+    for every living fish.
+    """
+    snapshots: list[dict[str, Any]] = []
+
+    for fish in world.fish:
+        social_state = (
+            calculate_fish_social_state(
+                fish=fish,
+                all_fish=world.fish,
+                neighbor_radius=(
+                    world.config.neighbor_radius
+                ),
+            )
+        )
+
+        snapshots.append(
+            {
+                "time": world.elapsed_time,
+                "fish_id": fish.fish_id,
+                **social_state,
+            }
+        )
+
+    return snapshots

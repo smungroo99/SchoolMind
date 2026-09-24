@@ -10,10 +10,10 @@ from schoolmind.simulation.physics import (
     update_velocity,
 )
 
-
 class Fish:
     def __init__(
         self,
+        fish_id: int,
         position: pygame.Vector2,
         target_speed: float,
         max_speed: float,
@@ -23,10 +23,11 @@ class Fish:
         world_height: int,
         radius: float,
         boundary_margin: float,
-        boundary_avoidance_weight: float,
         random_perturbation: bool = True,
         rng: random.Random | None = None,
     ) -> None:
+        self.fish_id = fish_id
+
         self.position = position
         self.target_speed = target_speed
         self.max_speed = max_speed
@@ -38,9 +39,6 @@ class Fish:
         self.radius = radius
 
         self.boundary_margin = boundary_margin
-        self.boundary_avoidance_weight = (
-            boundary_avoidance_weight
-        )
 
         self.random_perturbation = random_perturbation
 

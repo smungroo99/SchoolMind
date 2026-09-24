@@ -10,7 +10,6 @@ simulation:
   predator_count: 2
 
   boundary_margin: 100.0
-  boundary_avoidance_weight: 4.0
 
   predator_max_speed: 170.0
   predator_spawn_pattern: ring

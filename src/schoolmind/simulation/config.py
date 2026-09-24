@@ -20,7 +20,6 @@ class SimulationConfig:
 
     # Aquarium boundaries
     boundary_margin: float = 100.0
-    boundary_avoidance_weight: float = 4.0
 
     # Boids
     neighbor_radius: float = 100.0

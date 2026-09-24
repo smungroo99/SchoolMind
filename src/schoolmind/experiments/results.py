@@ -103,17 +103,23 @@ def write_results(
         The exact configuration supplied by the user.
 
     - resolved_config.yaml
-        The complete configuration after defaults have been applied.
+        The complete configuration after defaults
+        have been applied.
 
     - results.json
-        Experiment metadata, configuration, trial results,
-        and summary statistics.
+        Complete experiment data.
 
     - results.csv
-        Flat trial-level results.
+        One row per trial.
 
     - social_metrics.csv
-        Time-series school social metrics.
+        One row per timestamp per trial.
+
+    - individual_social_metrics.csv
+        One row per fish per timestamp per trial.
+
+    - capture_events.csv
+        One row per captured fish.
     """
     if output_directory.exists():
         raise FileExistsError(
@@ -126,9 +132,9 @@ def write_results(
         exist_ok=False,
     )
 
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
     # Configuration
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
 
     shutil.copyfile(
         config_path,
@@ -157,15 +163,11 @@ def write_results(
             sort_keys=False,
         )
 
-    # ------------------------------------------------------------------
-    # Summary
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
+    # Summary and reproducibility metadata
+    # --------------------------------------------------------------
 
     summary = summarize_trials(results)
-
-    # ------------------------------------------------------------------
-    # Reproducibility metadata
-    # ------------------------------------------------------------------
 
     metadata = {
         "experiment_id": experiment_id,
@@ -173,7 +175,9 @@ def write_results(
             timezone.utc
         ).isoformat(),
         "python_version": sys.version,
-        "schoolmind_version": get_schoolmind_version(),
+        "schoolmind_version": (
+            get_schoolmind_version()
+        ),
         "git_commit": get_git_commit(),
         "base_seed": (
             experiment_config
@@ -186,9 +190,9 @@ def write_results(
         ),
     }
 
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
     # JSON
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
 
     json_payload = {
         "metadata": metadata,
@@ -215,9 +219,9 @@ def write_results(
             indent=2,
         )
 
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
     # Trial-level CSV
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
 
     csv_fields = [
         "experiment_id",
@@ -261,9 +265,9 @@ def write_results(
                 }
             )
 
-    # ------------------------------------------------------------------
-    # Social metrics time-series CSV
-    # ------------------------------------------------------------------
+    # --------------------------------------------------------------
+    # School-level social metrics CSV
+    # --------------------------------------------------------------
 
     social_fields = [
         "experiment_id",
@@ -303,13 +307,109 @@ def write_results(
             ):
                 writer.writerow(
                     {
-                        "experiment_id": experiment_id,
-                        "trial_index": result[
-                            "trial_index"
-                        ],
-                        "seed": result[
-                            "seed"
-                        ],
+                        "experiment_id": (
+                            experiment_id
+                        ),
+                        "trial_index": (
+                            result["trial_index"]
+                        ),
+                        "seed": result["seed"],
                         **snapshot,
+                    }
+                )
+
+    # --------------------------------------------------------------
+    # Individual social metrics CSV
+    # --------------------------------------------------------------
+
+    individual_social_fields = [
+        "experiment_id",
+        "trial_index",
+        "seed",
+        "time",
+        "fish_id",
+        "neighbor_count",
+        "nearest_neighbor_distance",
+        "mean_neighbor_distance",
+        "alignment",
+        "cohesion_distance",
+    ]
+
+    with (
+        output_directory
+        / "individual_social_metrics.csv"
+    ).open(
+        "w",
+        encoding="utf-8",
+        newline="",
+    ) as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=individual_social_fields,
+        )
+
+        writer.writeheader()
+
+        for result in results:
+            for snapshot in result.get(
+                "individual_social_time_series",
+                [],
+            ):
+                writer.writerow(
+                    {
+                        "experiment_id": (
+                            experiment_id
+                        ),
+                        "trial_index": (
+                            result["trial_index"]
+                        ),
+                        "seed": result["seed"],
+                        **snapshot,
+                    }
+                )
+
+    # --------------------------------------------------------------
+    # Capture events CSV
+    # --------------------------------------------------------------
+
+    capture_event_fields = [
+        "experiment_id",
+        "trial_index",
+        "seed",
+        "time",
+        "fish_id",
+        "predator_id",
+    ]
+
+    with (
+        output_directory
+        / "capture_events.csv"
+    ).open(
+        "w",
+        encoding="utf-8",
+        newline="",
+    ) as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=capture_event_fields,
+        )
+
+        writer.writeheader()
+
+        for result in results:
+            for event in result.get(
+                "capture_events",
+                [],
+            ):
+                writer.writerow(
+                    {
+                        "experiment_id": (
+                            experiment_id
+                        ),
+                        "trial_index": (
+                            result["trial_index"]
+                        ),
+                        "seed": result["seed"],
+                        **event,
                     }
                 )
