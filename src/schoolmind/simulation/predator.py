@@ -1,6 +1,6 @@
 import math
 import random
-from typing import Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import pygame
 
@@ -23,6 +23,7 @@ class Predator:
         max_acceleration: float,
         detection_range: float,
         capture_radius: float,
+        capture_cooldown: float,
         world_width: int,
         world_height: int,
         boundary_margin: float,
@@ -35,6 +36,8 @@ class Predator:
         self.max_acceleration = max_acceleration
         self.detection_range = detection_range
         self.capture_radius = capture_radius
+        self.capture_cooldown = capture_cooldown
+        self.capture_cooldown_remaining = 0.0
 
         self.world_width = world_width
         self.world_height = world_height
@@ -131,6 +134,28 @@ class Predator:
             return None
 
         return direction.normalize()
+
+    def update_capture_cooldown(
+        self,
+        dt: float,
+    ) -> None:
+        """Decrease the remaining capture cooldown."""
+        self.capture_cooldown_remaining = max(
+            0.0,
+            self.capture_cooldown_remaining - dt,
+        )
+
+    def can_capture(self) -> bool:
+        """Return whether this predator can currently capture a fish."""
+        return (
+            self.capture_cooldown_remaining <= 0.0
+        )
+
+    def register_capture(self) -> None:
+        """Start the capture cooldown after a successful capture."""
+        self.capture_cooldown_remaining = (
+            self.capture_cooldown
+        )
 
     def update(
         self,

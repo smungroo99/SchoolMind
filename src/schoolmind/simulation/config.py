@@ -32,6 +32,7 @@ class SimulationConfig:
     predator_max_acceleration: float = 400.0
     predator_detection_range: float = 250.0
     predator_capture_radius: float = 12.0
+    predator_capture_cooldown: float = 1.5
     predator_avoidance_weight: float = 3.0
     predator_separation_radius: float = 50.0
     predator_separation_weight: float = 5.0

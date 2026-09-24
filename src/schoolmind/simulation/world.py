@@ -113,6 +113,9 @@ class World:
                 capture_radius=(
                     self.config.predator_capture_radius
                 ),
+                capture_cooldown=(
+                    self.config.predator_capture_cooldown
+                ),
                 world_width=self.config.width,
                 world_height=self.config.height,
                 boundary_margin=(
@@ -125,6 +128,10 @@ class World:
 
     def update(self, dt: float) -> None:
         self.elapsed_time += dt
+
+        # Cooldowns progress continuously while predators move.
+        for predator in self.predators:
+            predator.update_capture_cooldown(dt)
 
         fish_desired_directions: list[
             pygame.Vector2 | None
@@ -183,7 +190,9 @@ class World:
                 self.config.predator_coordination_mode
                 == "coordinated"
             ):
-                unavailable_targets = claimed_targets
+                unavailable_targets = (
+                    claimed_targets
+                )
 
             elif (
                 self.config.predator_coordination_mode
@@ -199,7 +208,9 @@ class World:
 
             predator.choose_target(
                 self.fish,
-                unavailable_targets=unavailable_targets,
+                unavailable_targets=(
+                    unavailable_targets
+                ),
             )
 
             if (
@@ -281,6 +292,9 @@ class World:
         captured_fish: list[Fish] = []
 
         for predator in self.predators:
+            if not predator.can_capture():
+                continue
+
             closest_fish = None
             closest_distance = predator.capture_radius
 
@@ -312,6 +326,7 @@ class World:
                 )
 
                 predator.target = None
+                predator.register_capture()
 
         if not captured_fish:
             return

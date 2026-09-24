@@ -14,6 +14,7 @@ simulation:
   predator_boundary_margin: 0.0
 
   predator_max_speed: 170.0
+  predator_capture_cooldown: 1.5
   predator_coordination_mode: independent
 
   separation_weight: 1.5
