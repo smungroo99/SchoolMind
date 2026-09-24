@@ -82,7 +82,7 @@ class Renderer:
         text = (
             f"Fish: {metrics['fish_alive']}   "
             f"Captured: {metrics['fish_captured']}   "
-            f"Predators: {metrics['active_predators']}"
+            f"Predators: {metrics['predator_count']}"
         )
 
         surface = self.font.render(
