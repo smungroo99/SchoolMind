@@ -30,7 +30,6 @@ def make_fish(
 
     return fish
 
-
 def make_predator(
     position: pygame.Vector2,
     velocity: pygame.Vector2,
@@ -42,15 +41,14 @@ def make_predator(
         max_acceleration=400.0,
         detection_range=250.0,
         capture_radius=12.0,
+        capture_cooldown=1.5,
         world_width=1000,
         world_height=700,
         boundary_margin=0.0,
     )
 
     predator.velocity = velocity
-
     return predator
-
 
 def test_fish_does_not_wrap_past_left_boundary() -> None:
     fish = make_fish(

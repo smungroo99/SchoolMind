@@ -8,7 +8,7 @@ experiment:
 simulation:
   fish_count: 75
   fish_speed: 225.0
-  predator_count: 2
+  predator_count: 1
 
   fish_boundary_margin: 100.0
   predator_boundary_margin: 0.0
