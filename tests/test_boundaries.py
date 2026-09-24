@@ -44,7 +44,7 @@ def make_predator(
         capture_radius=12.0,
         world_width=1000,
         world_height=700,
-        boundary_margin=100.0,
+        boundary_margin=0.0,
     )
 
     predator.velocity = velocity
@@ -285,3 +285,64 @@ def test_predator_does_not_wrap_past_bottom_boundary() -> None:
 
     assert predator.position.y <= 700.0
     assert predator.velocity.y <= 0.0
+
+def test_predator_can_enter_boundary_margin() -> None:
+    predator = make_predator(
+        position=pygame.Vector2(
+            900.0,
+            350.0,
+        ),
+        velocity=pygame.Vector2(
+            200.0,
+            0.0,
+        ),
+    )
+
+    predator.update(
+        dt=0.1,
+        desired_direction=pygame.Vector2(1, 0),
+    )
+
+    # The predator should be allowed to move inside
+    # what used to be the 100-pixel exclusion zone.
+    assert predator.position.x > 900.0
+
+def test_predator_can_move_through_fish_boundary_margin() -> None:
+    predator = make_predator(
+        position=pygame.Vector2(
+            900.0,
+            350.0,
+        ),
+        velocity=pygame.Vector2(
+            200.0,
+            0.0,
+        ),
+    )
+
+    predator.update(
+        dt=0.1,
+        desired_direction=pygame.Vector2(1, 0),
+    )
+
+    assert predator.position.x > 900.0
+    assert predator.position.x < 1000.0
+
+def test_predator_bounces_at_actual_right_boundary() -> None:
+    predator = make_predator(
+        position=pygame.Vector2(
+            995.0,
+            350.0,
+        ),
+        velocity=pygame.Vector2(
+            200.0,
+            0.0,
+        ),
+    )
+
+    predator.update(
+        dt=0.1,
+        desired_direction=pygame.Vector2(1, 0),
+    )
+
+    assert predator.position.x <= 1000.0
+    assert predator.velocity.x <= 0.0

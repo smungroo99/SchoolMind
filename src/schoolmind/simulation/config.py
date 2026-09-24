@@ -19,7 +19,8 @@ class SimulationConfig:
     random_perturbation: bool = True
 
     # Aquarium boundaries
-    boundary_margin: float = 100.0
+    fish_boundary_margin: float = 100.0
+    predator_boundary_margin: float = 0.0
 
     # Boids
     neighbor_radius: float = 100.0

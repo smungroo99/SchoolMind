@@ -137,12 +137,20 @@ The simulation uses a bounded rectangular environment.
 
 Fish and predators cannot wrap around the edges.
 
-Entities begin turning away from nearby boundaries and are
-hard-constrained to remain inside the world. If an entity reaches
-a boundary, its corresponding velocity component is reflected.
+Fish begin steering away from nearby boundaries using
+`fish_boundary_margin`, giving them space to turn before
+reaching the wall.
 
-Because the world is no longer toroidal, ordinary Euclidean
-distance is appropriate for neighborhood and predator-distance
+Predators do not have a pre-wall avoidance margin. Their
+`predator_boundary_margin` is `0`, so they can pursue fish
+all the way to the aquarium boundary.
+
+Both fish and predators are hard-constrained to remain inside
+the world. If an entity reaches a boundary, its corresponding
+velocity component is reflected.
+
+Because the world is not toroidal, ordinary Euclidean distance
+is appropriate for neighborhood and predator-distance
 calculations.
 
 ---

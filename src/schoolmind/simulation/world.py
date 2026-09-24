@@ -71,7 +71,7 @@ class World:
                 world_height=self.config.height,
                 radius=self.config.fish_radius,
                 boundary_margin=(
-                    self.config.boundary_margin
+                    self.config.fish_boundary_margin
                 ),
                 random_perturbation=(
                     self.config.random_perturbation
@@ -80,7 +80,6 @@ class World:
             )
 
             self.fish.append(fish)
-
     def _spawn_predators(self) -> None:
         for predator_id in range(
             self.config.predator_count
@@ -107,7 +106,7 @@ class World:
                 world_width=self.config.width,
                 world_height=self.config.height,
                 boundary_margin=(
-                    self.config.boundary_margin
+                    self.config.predator_boundary_margin
                 ),
                 rng=self.rng,
             )

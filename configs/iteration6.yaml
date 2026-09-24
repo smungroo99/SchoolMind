@@ -9,7 +9,8 @@ simulation:
   fish_count: 75
   predator_count: 2
 
-  boundary_margin: 100.0
+  fish_boundary_margin: 100.0
+  predator_boundary_margin: 0.0
 
   predator_max_speed: 170.0
   predator_spawn_pattern: ring
