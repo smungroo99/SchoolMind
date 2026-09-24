@@ -87,7 +87,6 @@ def get_schoolmind_version() -> str:
     except PackageNotFoundError:
         return "unknown"
 
-
 def write_results(
     output_directory: Path,
     experiment_id: str,
@@ -104,15 +103,17 @@ def write_results(
         The exact configuration supplied by the user.
 
     - resolved_config.yaml
-        The complete configuration after SimulationConfig
-        defaults have been applied.
+        The complete configuration after defaults have been applied.
 
     - results.json
         Experiment metadata, configuration, trial results,
         and summary statistics.
 
     - results.csv
-        Flat trial-level results suitable for pandas/data analysis.
+        Flat trial-level results.
+
+    - social_metrics.csv
+        Time-series school social metrics.
     """
     if output_directory.exists():
         raise FileExistsError(
@@ -129,17 +130,11 @@ def write_results(
     # Configuration
     # ------------------------------------------------------------------
 
-    # Preserve the exact YAML supplied by the user.
     shutil.copyfile(
         config_path,
         output_directory / "config.yaml",
     )
 
-    # Save the fully resolved configuration.
-    #
-    # ExperimentConfig contains all values after the YAML has been
-    # loaded into the dataclasses, meaning omitted simulation values
-    # have already received their SimulationConfig defaults.
     resolved_config = {
         "experiment": asdict(
             experiment_config.experiment
@@ -150,7 +145,8 @@ def write_results(
     }
 
     with (
-        output_directory / "resolved_config.yaml"
+        output_directory
+        / "resolved_config.yaml"
     ).open(
         "w",
         encoding="utf-8",
@@ -207,7 +203,8 @@ def write_results(
     }
 
     with (
-        output_directory / "results.json"
+        output_directory
+        / "results.json"
     ).open(
         "w",
         encoding="utf-8",
@@ -219,7 +216,7 @@ def write_results(
         )
 
     # ------------------------------------------------------------------
-    # CSV
+    # Trial-level CSV
     # ------------------------------------------------------------------
 
     csv_fields = [
@@ -241,7 +238,8 @@ def write_results(
     ]
 
     with (
-        output_directory / "results.csv"
+        output_directory
+        / "results.csv"
     ).open(
         "w",
         encoding="utf-8",
@@ -250,6 +248,7 @@ def write_results(
         writer = csv.DictWriter(
             file,
             fieldnames=csv_fields,
+            extrasaction="ignore",
         )
 
         writer.writeheader()
@@ -261,3 +260,56 @@ def write_results(
                     **result,
                 }
             )
+
+    # ------------------------------------------------------------------
+    # Social metrics time-series CSV
+    # ------------------------------------------------------------------
+
+    social_fields = [
+        "experiment_id",
+        "trial_index",
+        "seed",
+        "time",
+        "fish_count",
+        "isolated_fish_fraction",
+        "mean_neighbor_count",
+        "mean_nearest_neighbor_distance",
+        "mean_neighbor_distance",
+        "mean_alignment",
+        "mean_cohesion_distance",
+        "polarization",
+        "dispersion",
+    ]
+
+    with (
+        output_directory
+        / "social_metrics.csv"
+    ).open(
+        "w",
+        encoding="utf-8",
+        newline="",
+    ) as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=social_fields,
+        )
+
+        writer.writeheader()
+
+        for result in results:
+            for snapshot in result.get(
+                "social_time_series",
+                [],
+            ):
+                writer.writerow(
+                    {
+                        "experiment_id": experiment_id,
+                        "trial_index": result[
+                            "trial_index"
+                        ],
+                        "seed": result[
+                            "seed"
+                        ],
+                        **snapshot,
+                    }
+                )

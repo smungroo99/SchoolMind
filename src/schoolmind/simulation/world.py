@@ -32,10 +32,23 @@ class World:
         self._spawn_predators()
 
     def _spawn_fish(self) -> None:
+        radius = self.config.fish_radius
+
+        min_x = radius
+        max_x = self.config.width - radius
+
+        min_y = radius
+        max_y = self.config.height - radius
+
+        if min_x > max_x or min_y > max_y:
+            raise ValueError(
+                "Fish radius is too large for the world dimensions."
+            )
+
         for _ in range(self.config.fish_count):
             position = pygame.Vector2(
-                self.rng.uniform(0, self.config.width),
-                self.rng.uniform(0, self.config.height),
+                self.rng.uniform(min_x, max_x),
+                self.rng.uniform(min_y, max_y),
             )
 
             target_speed = self.rng.uniform(
@@ -47,18 +60,31 @@ class World:
                 position=position,
                 target_speed=target_speed,
                 max_speed=self.config.max_fish_speed,
-                max_acceleration=self.config.max_fish_acceleration,
+                max_acceleration=(
+                    self.config.max_fish_acceleration
+                ),
                 max_turn_rate=self.config.max_turn_rate,
                 world_width=self.config.width,
                 world_height=self.config.height,
-                random_perturbation=self.config.random_perturbation,
+                radius=self.config.fish_radius,
+                boundary_margin=(
+                    self.config.boundary_margin
+                ),
+                boundary_avoidance_weight=(
+                    self.config.boundary_avoidance_weight
+                ),
+                random_perturbation=(
+                    self.config.random_perturbation
+                ),
                 rng=self.rng,
             )
 
             self.fish.append(fish)
 
     def _spawn_predators(self) -> None:
-        for predator_id in range(self.config.predator_count):
+        for predator_id in range(
+            self.config.predator_count
+        ):
             position = self._get_predator_spawn_position(
                 predator_id
             )
@@ -66,12 +92,23 @@ class World:
             predator = Predator(
                 predator_id=predator_id,
                 position=position,
-                max_speed=self.config.predator_max_speed,
-                max_acceleration=self.config.predator_max_acceleration,
-                detection_range=self.config.predator_detection_range,
-                capture_radius=self.config.predator_capture_radius,
+                max_speed=(
+                    self.config.predator_max_speed
+                ),
+                max_acceleration=(
+                    self.config.predator_max_acceleration
+                ),
+                detection_range=(
+                    self.config.predator_detection_range
+                ),
+                capture_radius=(
+                    self.config.predator_capture_radius
+                ),
                 world_width=self.config.width,
                 world_height=self.config.height,
+                boundary_margin=(
+                    self.config.boundary_margin
+                ),
                 rng=self.rng,
             )
 

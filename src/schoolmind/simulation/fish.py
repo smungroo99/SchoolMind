@@ -4,7 +4,11 @@ from typing import Optional
 
 import pygame
 
-from schoolmind.simulation.physics import update_velocity
+from schoolmind.simulation.physics import (
+    adjust_direction_for_boundary,
+    constrain_to_bounds,
+    update_velocity,
+)
 
 
 class Fish:
@@ -17,6 +21,9 @@ class Fish:
         max_turn_rate: float,
         world_width: int,
         world_height: int,
+        radius: float,
+        boundary_margin: float,
+        boundary_avoidance_weight: float,
         random_perturbation: bool = True,
         rng: random.Random | None = None,
     ) -> None:
@@ -25,22 +32,38 @@ class Fish:
         self.max_speed = max_speed
         self.max_acceleration = max_acceleration
         self.max_turn_rate = max_turn_rate
-        self.random_perturbation = random_perturbation
 
         self.world_width = world_width
         self.world_height = world_height
+        self.radius = radius
 
-        self.rng = rng if rng is not None else random.Random()
+        self.boundary_margin = boundary_margin
+        self.boundary_avoidance_weight = (
+            boundary_avoidance_weight
+        )
+
+        self.random_perturbation = random_perturbation
+
+        self.rng = (
+            rng
+            if rng is not None
+            else random.Random()
+        )
 
         # Start in a random direction.
-        angle = self.rng.uniform(0, 2 * math.pi)
+        angle = self.rng.uniform(
+            0,
+            2 * math.pi,
+        )
 
         direction = pygame.Vector2(
             math.cos(angle),
             math.sin(angle),
         )
 
-        self.velocity = direction * self.target_speed
+        self.velocity = (
+            direction * self.target_speed
+        )
 
     def update(
         self,
@@ -62,7 +85,20 @@ class Fish:
             else:
                 turn_amount = 0.0
 
-            desired_direction = current_direction.rotate_rad(turn_amount)
+            desired_direction = (
+                current_direction.rotate_rad(
+                    turn_amount
+                )
+            )
+
+        desired_direction = adjust_direction_for_boundary(
+            desired_direction=desired_direction,
+            current_velocity=self.velocity,
+            position=self.position,
+            world_width=self.world_width,
+            world_height=self.world_height,
+            boundary_margin=self.boundary_margin,
+        )
 
         self.velocity = update_velocity(
             velocity=self.velocity,
@@ -75,8 +111,10 @@ class Fish:
 
         self.position += self.velocity * dt
 
-        self._wrap_position()
-
-    def _wrap_position(self) -> None:
-        self.position.x %= self.world_width
-        self.position.y %= self.world_height
+        self.velocity = constrain_to_bounds(
+            position=self.position,
+            velocity=self.velocity,
+            world_width=self.world_width,
+            world_height=self.world_height,
+            radius=self.radius,
+        )

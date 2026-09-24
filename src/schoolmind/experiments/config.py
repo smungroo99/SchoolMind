@@ -13,6 +13,7 @@ class ExperimentSettings:
     random_seed: int = 42
     simulation_duration: float = 60.0
     trials: int = 10
+    metrics_sample_interval: float = 0.5
 
 
 @dataclass(frozen=True)
@@ -48,7 +49,10 @@ def load_experiment_config(
 ) -> ExperimentConfig:
     config_path = Path(path)
 
-    with config_path.open("r", encoding="utf-8") as file:
+    with config_path.open(
+        "r",
+        encoding="utf-8",
+    ) as file:
         data = yaml.safe_load(file)
 
     if not isinstance(data, dict):
@@ -102,6 +106,11 @@ def load_experiment_config(
     if experiment.simulation_duration <= 0:
         raise ValueError(
             "'simulation_duration' must be greater than zero."
+        )
+
+    if experiment.metrics_sample_interval <= 0:
+        raise ValueError(
+            "'metrics_sample_interval' must be greater than zero."
         )
 
     return ExperimentConfig(

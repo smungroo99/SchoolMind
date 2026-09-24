@@ -18,6 +18,10 @@ class SimulationConfig:
 
     random_perturbation: bool = True
 
+    # Aquarium boundaries
+    boundary_margin: float = 100.0
+    boundary_avoidance_weight: float = 4.0
+
     # Boids
     neighbor_radius: float = 100.0
     separation_radius: float = 25.0
@@ -36,5 +40,10 @@ class SimulationConfig:
     predator_separation_weight: float = 5.0
 
     # Predator behavior
-    predator_spawn_pattern: str = "ring"  # Options: "random", "clustered", "ring", "opposite_sides"
-    predator_coordination_mode: str = "independent"  # Options: "coordinated", "independent"
+    predator_spawn_pattern: str = "ring"
+    # Options:
+    # "random", "clustered", "ring", "opposite_sides"
+
+    predator_coordination_mode: str = "independent"
+    # Options:
+    # "coordinated", "independent"
