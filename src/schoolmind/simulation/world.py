@@ -1,12 +1,19 @@
 import random
-import pygame
-import math
 
-from schoolmind.simulation.config import SimulationConfig
+import pygame
+
+from schoolmind.behavior.boids import (
+    calculate_desired_direction,
+)
+from schoolmind.behavior.predator import (
+    calculate_separation,
+)
+from schoolmind.simulation.config import (
+    SimulationConfig,
+)
 from schoolmind.simulation.fish import Fish
 from schoolmind.simulation.predator import Predator
-from schoolmind.behavior.boids import calculate_desired_direction
-from schoolmind.behavior.predator import calculate_separation
+
 
 class World:
     def __init__(
@@ -53,16 +60,11 @@ class World:
                 self.rng.uniform(min_y, max_y),
             )
 
-            target_speed = self.rng.uniform(
-                self.config.min_fish_speed,
-                self.config.max_fish_speed,
-            )
-
             fish = Fish(
                 fish_id=fish_id,
                 position=position,
-                target_speed=target_speed,
-                max_speed=self.config.max_fish_speed,
+                target_speed=self.config.fish_speed,
+                max_speed=self.config.fish_speed,
                 max_acceleration=(
                     self.config.max_fish_acceleration
                 ),
@@ -80,12 +82,20 @@ class World:
             )
 
             self.fish.append(fish)
+
     def _spawn_predators(self) -> None:
         for predator_id in range(
             self.config.predator_count
         ):
-            position = self._get_predator_spawn_position(
-                predator_id
+            position = pygame.Vector2(
+                self.rng.uniform(
+                    0,
+                    self.config.width,
+                ),
+                self.rng.uniform(
+                    0,
+                    self.config.height,
+                ),
             )
 
             predator = Predator(
@@ -113,100 +123,59 @@ class World:
 
             self.predators.append(predator)
 
-    def _get_predator_spawn_position(
-        self,
-        predator_id: int,
-    ) -> pygame.Vector2:
-        pattern = self.config.predator_spawn_pattern
-
-        if pattern == "random":
-            return pygame.Vector2(
-                self.rng.uniform(0, self.config.width),
-                self.rng.uniform(0, self.config.height),
-            )
-
-        center = pygame.Vector2(
-            self.config.width / 2,
-            self.config.height / 2,
-        )
-
-        if pattern == "clustered":
-            spread = 0.1 * min(
-                self.config.width,
-                self.config.height,
-            )
-
-            return pygame.Vector2(
-                center.x + self.rng.uniform(-spread, spread),
-                center.y + self.rng.uniform(-spread, spread),
-            )
-
-        if pattern == "opposite_sides":
-            x = (
-                0
-                if predator_id % 2 == 0
-                else self.config.width
-            )
-
-            y = self.rng.uniform(
-                self.config.height * 0.25,
-                self.config.height * 0.75,
-            )
-
-            return pygame.Vector2(x, y)
-
-        if pattern == "ring":
-            predator_count = self.config.predator_count
-
-            angle = (
-                2 * math.pi * predator_id
-                / predator_count
-            )
-
-            radius = 0.35 * min(
-                self.config.width,
-                self.config.height,
-            )
-
-            return pygame.Vector2(
-                center.x + math.cos(angle) * radius,
-                center.y + math.sin(angle) * radius,
-            )
-
-        raise ValueError(
-            f"Unknown predator spawn pattern: {pattern}"
-        )
-
     def update(self, dt: float) -> None:
         self.elapsed_time += dt
 
-        fish_desired_directions: list[pygame.Vector2 | None] = []
+        fish_desired_directions: list[
+            pygame.Vector2 | None
+        ] = []
 
         # ---------------------------------------------------------
         # 1. Calculate every fish's decision using the current
         #    world state.
         # ---------------------------------------------------------
         for fish in self.fish:
-            desired_direction = calculate_desired_direction(
-                fish=fish,
-                all_fish=self.fish,
-                neighbor_radius=self.config.neighbor_radius,
-                separation_radius=self.config.separation_radius,
-                separation_weight=self.config.separation_weight,
-                alignment_weight=self.config.alignment_weight,
-                cohesion_weight=self.config.cohesion_weight,
-                predators=self.predators,
-                predator_detection_range=self.config.predator_detection_range,
-                predator_avoidance_weight=self.config.predator_avoidance_weight,
+            desired_direction = (
+                calculate_desired_direction(
+                    fish=fish,
+                    all_fish=self.fish,
+                    neighbor_radius=(
+                        self.config.neighbor_radius
+                    ),
+                    separation_radius=(
+                        self.config.separation_radius
+                    ),
+                    separation_weight=(
+                        self.config.separation_weight
+                    ),
+                    alignment_weight=(
+                        self.config.alignment_weight
+                    ),
+                    cohesion_weight=(
+                        self.config.cohesion_weight
+                    ),
+                    predators=self.predators,
+                    predator_detection_range=(
+                        self.config.predator_detection_range
+                    ),
+                    predator_avoidance_weight=(
+                        self.config.predator_avoidance_weight
+                    ),
+                )
             )
 
-            fish_desired_directions.append(desired_direction)
+            fish_desired_directions.append(
+                desired_direction
+            )
 
         # ---------------------------------------------------------
         # 2. Calculate every predator's decision using the same
         #    current world state.
         # ---------------------------------------------------------
-        predator_desired_directions: list[pygame.Vector2 | None] = []
+        predator_desired_directions: list[
+            pygame.Vector2 | None
+        ] = []
+
         claimed_targets: set[Fish] = set()
 
         for predator in self.predators:
@@ -215,11 +184,13 @@ class World:
                 == "coordinated"
             ):
                 unavailable_targets = claimed_targets
+
             elif (
                 self.config.predator_coordination_mode
                 == "independent"
             ):
                 unavailable_targets = set()
+
             else:
                 raise ValueError(
                     "Unknown predator coordination mode: "
@@ -236,30 +207,46 @@ class World:
                 == "coordinated"
                 and predator.target is not None
             ):
-                claimed_targets.add(predator.target)
+                claimed_targets.add(
+                    predator.target
+                )
 
-            pursuit = predator.get_desired_direction()
+            pursuit = (
+                predator.get_desired_direction()
+            )
 
             separation = calculate_separation(
                 predator=predator,
                 predators=self.predators,
-                separation_radius=self.config.predator_separation_radius,
+                separation_radius=(
+                    self.config.predator_separation_radius
+                ),
             )
 
             if pursuit is None:
-                combined = separation * self.config.predator_separation_weight
+                combined = (
+                    separation
+                    * self.config.predator_separation_weight
+                )
             else:
                 combined = (
                     pursuit
-                    + separation * self.config.predator_separation_weight
+                    + (
+                        separation
+                        * self.config.predator_separation_weight
+                    )
                 )
 
             if combined.length_squared() == 0:
                 desired_direction = None
             else:
-                desired_direction = combined.normalize()
+                desired_direction = (
+                    combined.normalize()
+                )
 
-            predator_desired_directions.append(desired_direction)
+            predator_desired_directions.append(
+                desired_direction
+            )
 
         # ---------------------------------------------------------
         # 3. Apply all fish movement.
@@ -301,8 +288,10 @@ class World:
                 if fish in captured_fish:
                     continue
 
-                distance = predator.position.distance_to(
-                    fish.position
+                distance = (
+                    predator.position.distance_to(
+                        fish.position
+                    )
                 )
 
                 if distance <= closest_distance:
@@ -310,7 +299,9 @@ class World:
                     closest_fish = fish
 
             if closest_fish is not None:
-                captured_fish.append(closest_fish)
+                captured_fish.append(
+                    closest_fish
+                )
 
                 self.capture_events.append(
                     {
@@ -331,25 +322,37 @@ class World:
             if fish not in captured_fish
         ]
 
-        self.fish_captured += len(captured_fish)
+        self.fish_captured += len(
+            captured_fish
+        )
 
         if self.first_capture_time is None:
-            self.first_capture_time = self.elapsed_time
+            self.first_capture_time = (
+                self.elapsed_time
+            )
 
         if (
             not self.fish
             and self.extinction_time is None
         ):
-            self.extinction_time = self.elapsed_time
+            self.extinction_time = (
+                self.elapsed_time
+            )
 
     def get_metrics(self) -> dict:
         return {
             "fish_alive": len(self.fish),
             "fish_captured": self.fish_captured,
             "time_elapsed": self.elapsed_time,
-            "time_to_first_capture": self.first_capture_time,
-            "time_to_extinction": self.extinction_time,
-            "predator_count": len(self.predators),
+            "time_to_first_capture": (
+                self.first_capture_time
+            ),
+            "time_to_extinction": (
+                self.extinction_time
+            ),
+            "predator_count": len(
+                self.predators
+            ),
             "predator_target_switches": sum(
                 predator.target_switches
                 for predator in self.predators
@@ -363,7 +366,9 @@ class World:
         if seed is not None:
             self.seed = seed
 
-        self.rng = random.Random(self.seed)
+        self.rng = random.Random(
+            self.seed
+        )
 
         self.fish.clear()
         self.predators.clear()

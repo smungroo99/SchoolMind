@@ -6,10 +6,13 @@ experiment:
 
 simulation:
   fish_count: 75
+  fish_speed: 225.0
   predator_count: 1
 
+  fish_boundary_margin: 100.0
+  predator_boundary_margin: 0.0
+
   predator_max_speed: 170.0
-  predator_spawn_pattern: ring
   predator_coordination_mode: independent
 
   separation_weight: 1.5

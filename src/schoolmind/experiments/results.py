@@ -14,11 +14,17 @@ from pathlib import Path
 
 import yaml
 
-from schoolmind.experiments.config import ExperimentConfig
-from schoolmind.experiments.metrics import summarize_trials
+from schoolmind.experiments.config import (
+    ExperimentConfig,
+)
+from schoolmind.experiments.metrics import (
+    summarize_trials,
+)
 
 
-def create_experiment_id(name: str) -> str:
+def create_experiment_id(
+    name: str,
+) -> str:
     """
     Create a filesystem-safe, timestamped experiment ID.
 
@@ -36,7 +42,9 @@ def create_experiment_id(name: str) -> str:
 
     timestamp = datetime.now(
         timezone.utc
-    ).strftime("%Y%m%dT%H%M%S_%fZ")
+    ).strftime(
+        "%Y%m%dT%H%M%S_%fZ"
+    )
 
     return f"{safe_name}_{timestamp}"
 
@@ -49,7 +57,9 @@ def get_git_commit() -> str:
     a Git repository or Git cannot be queried.
     """
     try:
-        repository_path = Path(__file__).resolve()
+        repository_path = Path(
+            __file__
+        ).resolve()
 
         for path in repository_path.parents:
             if (path / ".git").exists():
@@ -80,12 +90,13 @@ def get_schoolmind_version() -> str:
     """
     Return the installed SchoolMind package version.
 
-    Returns "unknown" when the package metadata is unavailable.
+    Returns "unknown" when package metadata is unavailable.
     """
     try:
         return version("schoolmind")
     except PackageNotFoundError:
         return "unknown"
+
 
 def write_results(
     output_directory: Path,
@@ -100,26 +111,13 @@ def write_results(
     Files written:
 
     - config.yaml
-        The exact configuration supplied by the user.
-
     - resolved_config.yaml
-        The complete configuration after defaults
-        have been applied.
-
     - results.json
-        Complete experiment data.
-
     - results.csv
-        One row per trial.
-
     - social_metrics.csv
-        One row per timestamp per trial.
-
+    - cluster_social_metrics.csv
     - individual_social_metrics.csv
-        One row per fish per timestamp per trial.
-
     - capture_events.csv
-        One row per captured fish.
     """
     if output_directory.exists():
         raise FileExistsError(
@@ -167,7 +165,9 @@ def write_results(
     # Summary and reproducibility metadata
     # --------------------------------------------------------------
 
-    summary = summarize_trials(results)
+    summary = summarize_trials(
+        results
+    )
 
     metadata = {
         "experiment_id": experiment_id,
@@ -223,7 +223,7 @@ def write_results(
     # Trial-level CSV
     # --------------------------------------------------------------
 
-    csv_fields = [
+    trial_fields = [
         "experiment_id",
         "trial_index",
         "seed",
@@ -237,7 +237,7 @@ def write_results(
         "time_to_extinction",
         "predator_count",
         "predator_target_switches",
-        "predator_spawn_pattern",
+        "fish_speed",
         "predator_coordination_mode",
     ]
 
@@ -251,7 +251,7 @@ def write_results(
     ) as file:
         writer = csv.DictWriter(
             file,
-            fieldnames=csv_fields,
+            fieldnames=trial_fields,
             extrasaction="ignore",
         )
 
@@ -260,13 +260,15 @@ def write_results(
         for result in results:
             writer.writerow(
                 {
-                    "experiment_id": experiment_id,
+                    "experiment_id": (
+                        experiment_id
+                    ),
                     **result,
                 }
             )
 
     # --------------------------------------------------------------
-    # School-level social metrics CSV
+    # Global / population-level social metrics
     # --------------------------------------------------------------
 
     social_fields = [
@@ -281,8 +283,17 @@ def write_results(
         "mean_neighbor_distance",
         "mean_alignment",
         "mean_cohesion_distance",
-        "polarization",
-        "dispersion",
+        "global_polarization",
+        "global_dispersion",
+        "cluster_count",
+        "school_count",
+        "school_fish_fraction",
+        "largest_cluster_size",
+        "largest_cluster_fraction",
+        "mean_cluster_size",
+        "mean_school_size",
+        "mean_school_polarization",
+        "mean_school_dispersion",
     ]
 
     with (
@@ -296,6 +307,7 @@ def write_results(
         writer = csv.DictWriter(
             file,
             fieldnames=social_fields,
+            extrasaction="ignore",
         )
 
         writer.writeheader()
@@ -319,7 +331,68 @@ def write_results(
                 )
 
     # --------------------------------------------------------------
-    # Individual social metrics CSV
+    # Cluster-level social metrics
+    # --------------------------------------------------------------
+
+    cluster_fields = [
+        "experiment_id",
+        "trial_index",
+        "seed",
+        "time",
+        "cluster_id",
+        "cluster_size",
+        "fish_fraction",
+        "mean_alignment",
+        "mean_nearest_neighbor_distance",
+        "mean_neighbor_distance",
+        "mean_cohesion_distance",
+        "polarization",
+        "dispersion",
+    ]
+
+    with (
+        output_directory
+        / "cluster_social_metrics.csv"
+    ).open(
+        "w",
+        encoding="utf-8",
+        newline="",
+    ) as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=cluster_fields,
+            extrasaction="ignore",
+        )
+
+        writer.writeheader()
+
+        for result in results:
+            for snapshot in result.get(
+                "social_time_series",
+                [],
+            ):
+                for cluster in snapshot.get(
+                    "clusters",
+                    [],
+                ):
+                    writer.writerow(
+                        {
+                            "experiment_id": (
+                                experiment_id
+                            ),
+                            "trial_index": (
+                                result["trial_index"]
+                            ),
+                            "seed": result["seed"],
+                            "time": (
+                                snapshot["time"]
+                            ),
+                            **cluster,
+                        }
+                    )
+
+    # --------------------------------------------------------------
+    # Individual social metrics
     # --------------------------------------------------------------
 
     individual_social_fields = [
@@ -346,6 +419,7 @@ def write_results(
         writer = csv.DictWriter(
             file,
             fieldnames=individual_social_fields,
+            extrasaction="ignore",
         )
 
         writer.writeheader()
@@ -369,7 +443,7 @@ def write_results(
                 )
 
     # --------------------------------------------------------------
-    # Capture events CSV
+    # Capture events
     # --------------------------------------------------------------
 
     capture_event_fields = [

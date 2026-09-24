@@ -7,13 +7,13 @@ from schoolmind.experiments.config import (
     ExperimentSettings,
     load_experiment_config,
 )
+from schoolmind.experiments.results import (
+    write_results,
+)
 from schoolmind.experiments.runner import (
     get_trial_seed,
     run_batch,
     run_trial,
-)
-from schoolmind.experiments.results import (
-    write_results,
 )
 from schoolmind.simulation.config import (
     SimulationConfig,
@@ -32,8 +32,9 @@ def make_test_config() -> ExperimentConfig:
         simulation=SimulationConfig(
             fish_count=20,
             predator_count=2,
-            predator_spawn_pattern="ring",
-            predator_coordination_mode="coordinated",
+            predator_coordination_mode=(
+                "coordinated"
+            ),
         ),
     )
 
@@ -113,7 +114,9 @@ def test_batch_runs_expected_number_of_trials() -> None:
     ] == [1, 2, 3]
 
 
-def test_yaml_config_loads(tmp_path: Path) -> None:
+def test_yaml_config_loads(
+    tmp_path: Path,
+) -> None:
     config_path = (
         tmp_path / "experiment.yaml"
     )
@@ -211,6 +214,26 @@ def test_results_contain_resolved_configuration(
         output_directory / "results.csv"
     ).exists()
 
+    assert (
+        output_directory
+        / "social_metrics.csv"
+    ).exists()
+
+    assert (
+        output_directory
+        / "cluster_social_metrics.csv"
+    ).exists()
+
+    assert (
+        output_directory
+        / "individual_social_metrics.csv"
+    ).exists()
+
+    assert (
+        output_directory
+        / "capture_events.csv"
+    ).exists()
+
     payload = yaml.safe_load(
         (
             output_directory
@@ -225,11 +248,81 @@ def test_results_contain_resolved_configuration(
         == 20
     )
 
-    # This was omitted from the input YAML,
-    # so it should come from SimulationConfig.
     assert (
         payload["simulation"][
             "predator_detection_range"
         ]
         == SimulationConfig.predator_detection_range
     )
+
+
+def test_all_fish_have_same_speed() -> None:
+    config = SimulationConfig(
+        fish_count=50,
+        predator_count=0,
+    )
+
+    world = World(
+        config,
+        seed=42,
+    )
+
+    target_speeds = {
+        fish.target_speed
+        for fish in world.fish
+    }
+
+    max_speeds = {
+        fish.max_speed
+        for fish in world.fish
+    }
+
+    assert target_speeds == {
+        config.fish_speed
+    }
+
+    assert max_speeds == {
+        config.fish_speed
+    }
+
+
+def test_predators_spawn_randomly_and_deterministically() -> None:
+    config = SimulationConfig(
+        fish_count=20,
+        predator_count=3,
+    )
+
+    world_a = World(
+        config,
+        seed=42,
+    )
+
+    world_b = World(
+        config,
+        seed=42,
+    )
+
+    positions_a = [
+        predator.position
+        for predator in world_a.predators
+    ]
+
+    positions_b = [
+        predator.position
+        for predator in world_b.predators
+    ]
+
+    assert positions_a == positions_b
+
+    for predator in world_a.predators:
+        assert (
+            0.0
+            <= predator.position.x
+            <= config.width
+        )
+
+        assert (
+            0.0
+            <= predator.position.y
+            <= config.height
+        )

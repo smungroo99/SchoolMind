@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pygame
 import yaml
 
 from schoolmind.experiments.config import (
@@ -17,7 +18,6 @@ from schoolmind.experiments.social_metrics import (
     calculate_school_social_metrics,
     collect_individual_social_snapshot,
 )
-
 from schoolmind.simulation.config import (
     SimulationConfig,
 )
@@ -63,6 +63,53 @@ def make_world() -> World:
     return world
 
 
+def make_two_cluster_world() -> World:
+    config = SimulationConfig(
+        width=1000,
+        height=700,
+        fish_count=6,
+        predator_count=0,
+        random_perturbation=False,
+    )
+
+    world = World(
+        config,
+        seed=42,
+    )
+
+    positions = [
+        (100.0, 100.0),
+        (110.0, 100.0),
+        (100.0, 110.0),
+        (700.0, 100.0),
+        (710.0, 100.0),
+        (700.0, 110.0),
+    ]
+
+    for fish, (x, y) in zip(
+        world.fish,
+        positions,
+    ):
+        fish.position = pygame.Vector2(
+            x,
+            y,
+        )
+
+    for fish in world.fish[:3]:
+        fish.velocity = pygame.Vector2(
+            100.0,
+            0.0,
+        )
+
+    for fish in world.fish[3:]:
+        fish.velocity = pygame.Vector2(
+            -100.0,
+            0.0,
+        )
+
+    return world
+
+
 def test_fish_social_state() -> None:
     world = make_world()
 
@@ -73,18 +120,22 @@ def test_fish_social_state() -> None:
     )
 
     assert state["neighbor_count"] == 2
+
     assert (
         state["nearest_neighbor_distance"]
         == 10.0
     )
+
     assert (
         state["mean_neighbor_distance"]
         == 10.0
     )
+
     assert state["alignment"] == 1.0
+
     assert (
         state["cohesion_distance"]
-        == 00.0
+        == 0.0
     )
 
 
@@ -96,27 +147,72 @@ def test_school_social_metrics() -> None:
     )
 
     assert metrics["fish_count"] == 3
+
     assert (
         metrics["isolated_fish_fraction"]
         == 0.0
     )
+
     assert (
         metrics["mean_neighbor_count"]
         == 2.0
     )
+
     assert (
-        metrics["mean_nearest_neighbor_distance"]
+        metrics[
+            "mean_nearest_neighbor_distance"
+        ]
         == 10.0
     )
+
     assert (
         metrics["mean_alignment"]
         == 1.0
     )
+
     assert (
-        metrics["polarization"]
+        metrics["global_polarization"]
         == 1.0
     )
-    assert metrics["dispersion"] > 0.0
+
+    assert (
+        metrics["global_dispersion"]
+        > 0.0
+    )
+
+    assert metrics["cluster_count"] == 1
+
+    assert metrics["school_count"] == 1
+
+    assert (
+        metrics["school_fish_fraction"]
+        == 1.0
+    )
+
+    assert (
+        metrics["largest_cluster_size"]
+        == 3
+    )
+
+    assert (
+        metrics["largest_cluster_fraction"]
+        == 1.0
+    )
+
+    assert (
+        metrics["mean_cluster_size"]
+        == 3.0
+    )
+
+    assert (
+        metrics["mean_school_size"]
+        == 3.0
+    )
+
+    assert (
+        metrics["mean_school_polarization"]
+        == 1.0
+    )
 
 
 def test_isolated_fish_is_detected() -> None:
@@ -131,6 +227,79 @@ def test_isolated_fish_is_detected() -> None:
     assert (
         metrics["isolated_fish_fraction"]
         == 1.0 / 3.0
+    )
+
+    assert metrics["cluster_count"] == 2
+
+    assert metrics["school_count"] == 1
+
+    assert (
+        metrics["school_fish_fraction"]
+        == 2.0 / 3.0
+    )
+
+
+def test_two_opposite_clusters_are_detected() -> None:
+    world = make_two_cluster_world()
+
+    metrics = calculate_school_social_metrics(
+        world
+    )
+
+    assert metrics["cluster_count"] == 2
+
+    assert metrics["school_count"] == 2
+
+    assert (
+        metrics["school_fish_fraction"]
+        == 1.0
+    )
+
+    assert (
+        metrics["largest_cluster_size"]
+        == 3
+    )
+
+    assert (
+        metrics["largest_cluster_fraction"]
+        == 0.5
+    )
+
+    # Opposite school directions cancel globally.
+    assert (
+        metrics["global_polarization"]
+        == 0.0
+    )
+
+    # Each individual school is perfectly polarized.
+    assert (
+        metrics["mean_school_polarization"]
+        == 1.0
+    )
+
+    assert (
+        metrics["clusters"][0]["cluster_size"]
+        == 3
+    )
+
+    assert (
+        metrics["clusters"][1]["cluster_size"]
+        == 3
+    )
+
+    assert (
+        metrics["clusters"][0]["polarization"]
+        == 1.0
+    )
+
+    assert (
+        metrics["clusters"][1]["polarization"]
+        == 1.0
+    )
+
+    assert (
+        metrics["global_dispersion"]
+        > metrics["mean_school_dispersion"]
     )
 
 
@@ -190,15 +359,73 @@ def test_social_metrics_are_recorded_over_time() -> None:
     ]
 
     assert len(snapshots) >= 2
-    assert snapshots[0]["time"] == 0.0
 
-    assert snapshots[0]["fish_count"] == 10
+    assert (
+        snapshots[0]["time"]
+        == 0.0
+    )
+
+    assert (
+        snapshots[0]["fish_count"]
+        == 10
+    )
 
     assert all(
-        "mean_alignment" in snapshot
+        "global_polarization" in snapshot
         for snapshot in snapshots
     )
 
+    assert all(
+        "global_dispersion" in snapshot
+        for snapshot in snapshots
+    )
+
+    assert all(
+        "cluster_count" in snapshot
+        for snapshot in snapshots
+    )
+
+    assert all(
+        "school_count" in snapshot
+        for snapshot in snapshots
+    )
+
+
+def test_individual_social_snapshot() -> None:
+    world = make_world()
+
+    snapshots = (
+        collect_individual_social_snapshot(
+            world
+        )
+    )
+
+    assert len(snapshots) == 3
+
+    assert {
+        snapshot["fish_id"]
+        for snapshot in snapshots
+    } == {0, 1, 2}
+
+    assert all(
+        snapshot["time"] == 0.0
+        for snapshot in snapshots
+    )
+
+    assert all(
+        "neighbor_count" in snapshot
+        for snapshot in snapshots
+    )
+
+    assert all(
+        "alignment" in snapshot
+        for snapshot in snapshots
+    )
+
+    assert all(
+        "cohesion_distance" in snapshot
+        for snapshot in snapshots
+    )
 
 def test_social_metrics_csv_is_written(
     tmp_path: Path,
@@ -263,62 +490,78 @@ def test_social_metrics_csv_is_written(
         / "social_metrics.csv"
     )
 
+    cluster_metrics_path = (
+        output_directory
+        / "cluster_social_metrics.csv"
+    )
+
+    individual_metrics_path = (
+        output_directory
+        / "individual_social_metrics.csv"
+    )
+
     assert social_metrics_path.exists()
+    assert cluster_metrics_path.exists()
+    assert individual_metrics_path.exists()
 
-    contents = social_metrics_path.read_text(
-        encoding="utf-8"
+    social_contents = (
+        social_metrics_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    cluster_contents = (
+        cluster_metrics_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    individual_contents = (
+        individual_metrics_path.read_text(
+            encoding="utf-8"
+        )
     )
 
     assert (
-        "isolated_fish_fraction"
-        in contents
+        "global_polarization"
+        in social_contents
     )
 
     assert (
-        "mean_alignment"
-        in contents
+        "global_dispersion"
+        in social_contents
+    )
+
+    assert (
+        "school_count"
+        in social_contents
+    )
+
+    assert (
+        "cluster_id"
+        in cluster_contents
+    )
+
+    assert (
+        "cluster_size"
+        in cluster_contents
     )
 
     assert (
         "polarization"
-        in contents
+        in cluster_contents
     )
 
-def test_individual_social_snapshot() -> None:
-    world = make_world()
-
-    snapshots = (
-        collect_individual_social_snapshot(
-            world
-        )
+    assert (
+        "dispersion"
+        in cluster_contents
     )
 
-    assert len(snapshots) == 3
-
-    assert {
-        snapshot["fish_id"]
-        for snapshot in snapshots
-    } == {0, 1, 2}
-
-    assert all(
-        snapshot["time"] == 0.0
-        for snapshot in snapshots
+    assert (
+        "fish_id"
+        in individual_contents
     )
 
-    assert all(
-        "neighbor_count" in snapshot
-        for snapshot in snapshots
-    )
-
-    assert all(
-        "alignment" in snapshot
-        for snapshot in snapshots
-    )
-
-    assert all(
-        "cohesion_distance" in snapshot
-        for snapshot in snapshots
-    )
 
 def test_capture_events_record_fish_and_predator() -> None:
     config = SimulationConfig(
@@ -338,10 +581,24 @@ def test_capture_events_record_fish_and_predator() -> None:
 
     world._handle_captures()
 
-    assert len(world.capture_events) == 1
+    assert (
+        len(world.capture_events)
+        == 1
+    )
 
     event = world.capture_events[0]
 
-    assert event["fish_id"] == fish.fish_id
-    assert event["predator_id"] == predator.id
-    assert event["time"] == world.elapsed_time
+    assert (
+        event["fish_id"]
+        == fish.fish_id
+    )
+
+    assert (
+        event["predator_id"]
+        == predator.id
+    )
+
+    assert (
+        event["time"]
+        == world.elapsed_time
+    )
