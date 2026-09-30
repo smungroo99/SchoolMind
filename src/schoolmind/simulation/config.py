@@ -8,15 +8,16 @@ class SimulationConfig:
     fish_count: int = 75
     fps: int = 60
 
-    min_fish_speed: float = 150.0
-    max_fish_speed: float = 300.0
-
+    # Fish movement
+    fish_speed: float = 225.0
     max_fish_acceleration: float = 500.0
     max_turn_rate: float = 5.0
-
     fish_radius: int = 5
-
     random_perturbation: bool = True
+
+    # Aquarium boundaries
+    fish_boundary_margin: float = 100.0
+    predator_boundary_margin: float = 0.0
 
     # Boids
     neighbor_radius: float = 100.0
@@ -31,10 +32,12 @@ class SimulationConfig:
     predator_max_acceleration: float = 400.0
     predator_detection_range: float = 250.0
     predator_capture_radius: float = 12.0
+    predator_capture_cooldown: float = 1.5
     predator_avoidance_weight: float = 3.0
     predator_separation_radius: float = 50.0
     predator_separation_weight: float = 5.0
 
     # Predator behavior
-    predator_spawn_pattern: str = "ring"  # Options: "random", "clustered", "ring", "opposite_sides"
-    predator_coordination_mode: str = "independent"  # Options: "coordinated", "independent"
+    predator_coordination_mode: str = "independent"
+    # Options:
+    # "coordinated", "independent"

@@ -13,8 +13,11 @@ from schoolmind.experiments.results import (
     create_experiment_id,
     write_results,
 )
+from schoolmind.experiments.social_metrics import (
+    collect_individual_social_snapshot,
+    collect_school_social_snapshot,
+)
 from schoolmind.simulation.world import World
-
 
 def get_trial_seed(
     base_seed: int,
@@ -28,14 +31,14 @@ def get_trial_seed(
     """
     return base_seed + trial_index - 1
 
-
 def run_trial(
     experiment_config: ExperimentConfig,
     seed: int,
     trial_index: int,
 ) -> dict:
     """
-    Run one headless simulation trial and return its metrics.
+    Run one headless simulation trial and return
+    final metrics plus social-state time series.
     """
     world = World(
         experiment_config.simulation,
@@ -48,11 +51,35 @@ def run_trial(
         .simulation_duration
     )
 
-    dt = 1.0 / experiment_config.simulation.fps
+    dt = (
+        1.0
+        / experiment_config.simulation.fps
+    )
+
+    sample_interval = (
+        experiment_config
+        .experiment
+        .metrics_sample_interval
+    )
+
+    school_social_time_series = [
+        collect_school_social_snapshot(
+            world
+        )
+    ]
+
+    individual_social_time_series = (
+        collect_individual_social_snapshot(
+            world
+        )
+    )
+
+    next_sample_time = sample_interval
 
     while world.elapsed_time < duration:
         remaining_time = (
-            duration - world.elapsed_time
+            duration
+            - world.elapsed_time
         )
 
         step_dt = min(
@@ -62,17 +89,63 @@ def run_trial(
 
         world.update(step_dt)
 
-        # Once all fish have been captured,
-        # there is no reason to continue the trial.
+        if (
+            world.elapsed_time
+            >= next_sample_time
+        ):
+            school_social_time_series.append(
+                collect_school_social_snapshot(
+                    world
+                )
+            )
+
+            individual_social_time_series.extend(
+                collect_individual_social_snapshot(
+                    world
+                )
+            )
+
+            next_sample_time += (
+                sample_interval
+            )
+
         if not world.fish:
             break
+
+    # Always record the final state if it was not
+    # already captured by the regular sampling interval.
+    if (
+        not school_social_time_series
+        or abs(
+            school_social_time_series[-1]["time"]
+            - world.elapsed_time
+        )
+        > 1e-9
+    ):
+        school_social_time_series.append(
+            collect_school_social_snapshot(
+                world
+            )
+        )
+
+        individual_social_time_series.extend(
+            collect_individual_social_snapshot(
+                world
+            )
+        )
 
     return {
         "trial_index": trial_index,
         "seed": seed,
+        "social_time_series": (
+            school_social_time_series
+        ),
+        "individual_social_time_series": (
+            individual_social_time_series
+        ),
+        "capture_events": world.capture_events,
         **calculate_trial_metrics(world),
     }
-
 
 def run_batch(
     experiment_config: ExperimentConfig,
