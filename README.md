@@ -768,194 +768,462 @@ for individual fish and for the school as a whole.
 
 ---
 
-# Iteration 7 — Establish the social-state → predation-risk mechanism
+# Iteration 7 — Build the social predation-risk mechanism
 
 ## Goal
 
-Introduce the central mechanism of the entire SchoolMind research project:
+Introduce the central environmental mechanism required for the eventual SchoolMind research question:
 
-> **A fish that is poorly integrated into the school should be more vulnerable to predation than a fish that is properly integrated.**
+> **Can decentralized fish learn collective schooling behavior because local social organization changes their probability of surviving predation?**
 
-This is the critical bridge between the simulation and the future RL problem.
+The purpose of this iteration is **not** to teach fish to school and not to create a predator that explicitly prefers or avoids schools.
 
-At the end of this iteration, the environment should contain a measurable relationship between:
+Instead, the environment should create a plausible and measurable relationship between:
 
 ```text
-local social state
-        ↓
-predation vulnerability
-        ↓
+fish movement
+     ↓
+local social configuration
+     ↓
+predator interaction
+     ↓
+capture probability
+     ↓
 survival
 ```
 
+This is the critical bridge between the hand-coded simulation and the future reinforcement-learning problem.
+
 ---
 
-## Important principle
+## Central research hypothesis
 
-We should **not** tell the fish:
+The long-term hypothesis is:
+
+> **Individual fish can discover movement strategies that improve survival under predation, and when all fish learn from local observations, this may produce emergent schooling behavior without an explicit schooling reward.**
+
+The project should therefore avoid directly rewarding or commanding schooling.
+
+We should not tell an agent:
 
 ```text
-"Stay close to the school."
+"Move toward the school."
+"Stay within X pixels of the centroid."
+"Maintain exactly 5 neighbors."
 ```
 
-Instead, the environment should make schooling advantageous through survival.
+Instead, the environment should make some local social configurations more advantageous than others.
+
+---
+
+## Design principle: model vulnerability, not "school membership"
+
+The predator should not first determine:
+
+```text
+"This fish is in a school."
+```
+
+and then apply a school bonus.
+
+That would make schooling a predefined category rather than an emergent outcome.
+
+Instead, capture risk should depend on **local interaction and exposure**.
+
+The initial model should consider mechanisms such as:
+
+```text
+isolation / dilution
+        +
+local exposure / edge position
+        +
+predator target ambiguity
+        +
+excessive local crowding
+```
+
+These mechanisms can interact to create a region of lower vulnerability without defining one exact geometric shape as "the school."
+
+---
+
+## 1. Dilution
+
+An isolated fish has fewer nearby alternative prey.
 
 Conceptually:
 
 ```text
-healthy social state
-        ↓
-lower capture risk
-        ↓
-higher survival
-
-poor social state
-        ↓
-higher capture risk
-        ↓
-lower survival
+isolated fish
+     ↓
+few nearby prey
+     ↓
+little dilution
+     ↓
+higher individual vulnerability
 ```
 
-The fish will eventually discover this relationship through reinforcement learning.
+A fish surrounded by multiple nearby prey has more potential targets in its local neighborhood.
+
+The initial implementation should remain simple and stochastic rather than assuming an exact biological formula.
 
 ---
 
-## Vulnerability model
+## 2. Predator confusion
 
-The predator's baseline ability to capture a fish should be combined with a social-vulnerability modifier.
+A predator encountering several nearby fish that are moving in similar ways should have greater difficulty successfully selecting and tracking one individual.
 
 Conceptually:
 
 ```text
-capture probability
-    =
-baseline predator risk
-×
-social vulnerability
+few nearby comparable fish
+        ↓
+low target ambiguity
+        ↓
+higher capture success
+
+
+many nearby comparable fish
+        ↓
+greater target ambiguity
+        ↓
+lower capture success
 ```
 
-The social vulnerability term should depend on the fish's local:
+A first computational approximation can use local prey count and movement similarity as inputs.
 
-```text
-separation
-alignment
-cohesion
-```
-
-A fish outside the healthy schooling region should become more vulnerable.
-
-A fish inside the healthy schooling region should become less vulnerable.
-
-The exact functional form should be kept simple initially and documented before implementation.
-
-For example, the first version could use a bounded multiplier:
-
-```text
-social vulnerability ∈ [low risk, high risk]
-```
-
-rather than immediately creating a complicated biological model.
+The model should represent **target ambiguity**, not a direct "school score."
 
 ---
 
-## Do not hard-code a perfect school
+## 3. Local exposure / edge position
 
-The environment should not simply say:
+A fish surrounded by neighbors may have greater protection than a fish exposed on the outside of a group.
 
-```text
-if distance_to_centroid < X:
-    fish is safe
-```
-
-That would make "schooling" equivalent to one arbitrary geometric rule.
-
-Instead, the mechanism should consider the combination of:
+Conceptually:
 
 ```text
-separation
-alignment
-cohesion
+        predator
+           ↓
+
+      🐟  🐟  🐟
+    🐟  🐟  🐟  🐟
+       🐟  🐟
+
+      interior
+        ↑
+   more surrounded
+
+
+      🐟
+   exposed edge
+        ↑
+     greater
+     exposure
 ```
 
-so that the agent eventually has an incentive to discover a **healthy local configuration**.
+This provides an important mechanism through which an individual can benefit from moving toward other fish without the simulation explicitly telling it to form a school.
 
 ---
 
-## Avoid an unrealistic discontinuity
+## 4. Excessive crowding
 
-Avoid:
+Grouping should not automatically mean:
 
 ```text
-healthy school → completely safe
-not healthy → guaranteed death
+more fish nearby = always better
 ```
 
-The relationship should be probabilistic.
+Extremely tight configurations can introduce another form of vulnerability, such as reduced maneuverability or local interference.
 
-Even a well-integrated fish can be captured.
+Conceptually:
 
-Even an isolated fish can survive.
+```text
+very isolated
+     ↓
+higher vulnerability
 
-The difference should be in **probability over many trials**, not deterministic protection.
+reasonable local spacing
+     ↓
+lower vulnerability
+
+extremely crowded
+     ↓
+higher vulnerability
+```
+
+This creates a potential **intermediate region of lower risk** rather than rewarding infinite density.
+
+The exact relationship should be treated as an experimental modeling assumption and validated empirically.
 
 ---
 
-## Validation before RL
+## Combined vulnerability model
 
-Before introducing reinforcement learning, use the existing rule-based fish to verify that the environment behaves sensibly.
+The initial capture mechanism can be represented conceptually as:
 
-Controlled experiments should compare fish in different social states.
+```text
+baseline predator capture risk
+                ×
+       social vulnerability
+                ↓
+        capture probability
+```
+
+The social vulnerability term can be influenced by:
+
+```text
+local prey density
+local spacing
+local movement similarity
+local exposure
+local crowding
+```
+
+The exact mathematical function should be kept simple initially.
+
+The first version should produce a **bounded stochastic modifier**, not deterministic protection.
 
 For example:
 
 ```text
-well-integrated fish
-moderately isolated fish
-poorly aligned fish
-overcrowded fish
+low vulnerability
+        ↕
+normal vulnerability
+        ↕
+high vulnerability
 ```
 
-Then evaluate their capture outcomes across many randomized trials.
+A well-positioned fish can still be captured.
 
-The purpose is not to prove a biological law.
+An isolated fish can still survive.
 
-The purpose is to verify that the computational environment actually contains the intended learning signal.
+The difference should emerge statistically across many trials.
 
 ---
 
-## Important research constraint
+## Important constraint: do not hard-code "the school"
 
-The relationship should be strong enough for learning to discover but not so strong that schooling becomes an explicit scripted solution.
+Do not implement:
+
+```text
+if fish_in_school:
+    capture_probability *= 0.5
+```
+
+or:
+
+```text
+if neighbor_count > 5:
+    fish_is_safe = True
+```
+
+These approaches would directly encode the desired behavior.
+
+Instead, use the underlying local quantities already measured by Iteration 6:
+
+```text
+neighbor_count
+nearest_neighbor_distance
+mean_neighbor_distance
+alignment
+cohesion_distance
+```
+
+and, where useful, derive additional predator-relative quantities such as local exposure or target ambiguity.
+
+The environment should never need a perfect binary definition of:
+
+```text
+school / not school
+```
+
+in order to create the survival pressure.
+
+---
+
+## One large school vs many small schools
+
+Do **not** initially impose:
+
+```text
+one large school = bad
+many small schools = good
+```
+
+as an explicit global rule.
+
+The first mechanism should primarily operate on the **local environment around an individual fish**.
+
+A large school may provide more nearby alternatives and greater target ambiguity, while also potentially being more detectable or locally crowded.
+
+Several smaller schools may produce different local conditions.
+
+Those outcomes should be **measured**, not assumed.
+
+Later experiments can compare:
+
+```text
+one large school
+vs
+several medium schools
+vs
+many small schools
+```
+
+using the cluster metrics already available from Iteration 6.
+
+This makes school structure an experimental result rather than a scripted objective.
+
+---
+
+## Keep predator behavior simple initially
+
+The predator does not need to become an intelligent "school hunter."
+
+The initial predator should remain close to the established baseline:
+
+```text
+random spawn
+     ↓
+detect nearby fish
+     ↓
+select target
+     ↓
+pursue
+     ↓
+attempt capture
+```
+
+Nearest-fish targeting can remain the baseline target-selection mechanism.
+
+The major change in Iteration 7 is the **probability of successful capture once a predator interacts with a fish**, not a complete redesign of predator intelligence.
+
+This separation is important because it lets us test whether the social-risk mechanism itself produces the intended learning signal.
+
+---
+
+## Validation before reinforcement learning
+
+Before introducing RL, the environment must be tested using the current rule-based fish.
+
+The goal is to establish:
+
+> **Does local social configuration measurably affect individual predation outcomes?**
+
+Controlled experiments should create or identify fish experiencing different local states, such as:
+
+```text
+isolated
+lightly grouped
+well surrounded
+poorly aligned
+extremely crowded
+```
+
+Then measure:
+
+```text
+capture probability
+time to capture
+survival time
+local social metrics
+predator exposure
+```
+
+The important relationship is:
+
+```text
+local social state at time t
+             ↓
+predation risk during t → t + Δt
+             ↓
+capture / survival
+```
+
+This should be analyzed using repeated randomized trials rather than individual anecdotes.
+
+---
+
+## What Iteration 7 must demonstrate
+
+We are **not** trying to prove a biological law.
+
+We are trying to verify that our computational environment contains a useful causal learning signal.
+
+A successful result would look approximately like:
+
+```text
+different local social configurations
+                ↓
+different average capture probabilities
+```
+
+while avoiding:
+
+```text
+school → safe
+not school → dead
+```
+
+The relationship should remain probabilistic and imperfect.
+
+---
+
+## Research constraint
+
+The mechanism must be:
+
+```text
+strong enough
+     ↓
+for RL to learn from survival differences
+```
+
+but:
+
+```text
+not so explicit
+     ↓
+that schooling is directly scripted
+```
 
 We want:
 
 ```text
-predation pressure
-       ↓
+local interactions
+      ↓
+different predation outcomes
+      ↓
 survival differences
-       ↓
+      ↓
 learning signal
-       ↓
-emergent schooling
+      ↓
+possible emergent schooling
 ```
 
 not:
 
 ```text
 schooling rule
-       ↓
-fish follows it
+      ↓
+schooling behavior
 ```
 
 ---
 
 ## Deliverable
 
-A validated baseline predation-risk model in which local social state measurably affects capture probability.
+A validated baseline predation-risk model in which local social and predator-relative conditions measurably influence individual capture probability.
 
 ### Definition of done
 
-Across repeated trials, the experiment framework can demonstrate that social integration changes survival outcomes while keeping the predator, world, and trial conditions controlled.
+Across repeated controlled trials:
+
+* the same predator and world conditions can produce different capture rates under different local social configurations
+* capture remains probabilistic
+* the predator does not require an explicit "school" classifier
+* the mechanism does not directly reward or command schooling
+* the experiment framework records enough information to analyze social state immediately before capture
 
 ### Git checkpoint
 
@@ -967,86 +1235,88 @@ Across repeated trials, the experiment framework can demonstrate that social int
 
 ## Goal
 
-Convert the validated simulation into an RL environment.
-
-This is the transition from:
+Convert the validated simulation into an RL environment while preserving the separation between:
 
 ```text
-hand-coded simulation
+simulation
+behavior
+observation
+reward
+training
 ```
 
-to:
-
-```text
-learning environment
-```
+The environment should expose local information to individual agents and allow them to experience the consequences of their actions.
 
 ---
 
-## Start with one learning fish
+## First learning setup
 
-Do **not** make all fish learn immediately.
+Do not make every fish learn immediately.
 
 Start with:
 
 ```text
 1 learning fish
 +
-rule-based school
+rule-based fish
 +
 1 predator
 ```
 
-The rest of the fish continue using the established Boids behavior.
+The rest of the population continues using the established Boids behavior.
 
-This isolates the learning problem.
-
-The learning fish should have to determine how to move while experiencing the consequences of its social state and predator exposure.
+This provides a controlled environment in which we can determine whether one learning fish can discover useful predator-avoidance behavior before introducing full multi-agent learning.
 
 ---
 
 ## Observation design
 
-The observation should contain only information reasonably available to the individual fish.
+The learning fish should receive information that could reasonably be available to an individual fish.
 
-A first version could include:
+A first observation could contain:
 
 ```text
 own velocity
-
 nearest-neighbor distance
+local neighbor count
 local average neighbor direction
-local centroid direction
-
-local separation measure
-local alignment measure
-local cohesion measure
-
+local cohesion information
+local spacing information
 nearest predator distance
 nearest predator relative direction
-
-optional local threat information
 ```
 
-The important point is that we should expose **local state**, not a global instruction.
+Additional local predator information can be added later when necessary.
+
+The important principle is:
+
+```text
+local observation
+```
+
+rather than:
+
+```text
+global instruction
+```
 
 For example:
 
 ```text
 DO NOT:
-"the school is currently 37 meters wide"
+"the school contains 64 fish"
 
 PREFER:
-"my nearest neighbors are this far away"
+"I have 7 nearby fish"
 ```
 
-The observation space should remain small.
+The observation space should remain deliberately small.
 
 ---
 
 ## Action space
 
-Start with a small discrete action space:
+Begin with a simple action space such as:
 
 ```text
 turn left
@@ -1056,13 +1326,13 @@ accelerate
 decelerate
 ```
 
-Continuous steering can come later.
+Continuous steering can be introduced later.
 
 ---
 
 ## Environment interface
 
-Implement standard:
+Implement a standard interface:
 
 ```text
 reset()
@@ -1089,11 +1359,11 @@ done
 
 ## Deliverable
 
-A functioning environment that can run a random policy from start to finish.
+A functioning RL environment capable of running a random policy from start to finish.
 
 ### Definition of done
 
-A learning fish can interact with the simulation without any RL algorithm being required yet.
+A learning fish can interact with the existing simulation and receive valid observations, actions, rewards, and termination signals without requiring a complete RL training system.
 
 ### Git checkpoint
 
@@ -1105,53 +1375,58 @@ A learning fish can interact with the simulation without any RL algorithm being 
 
 ## Goal
 
-Design the reward so that the environment encourages survival without directly instructing the agent to perform schooling.
+Design the reward so that fish are rewarded for **survival**, not for explicitly performing schooling behavior.
 
-This is one of the most important iterations in the project.
+This is one of the most important design constraints in the entire project.
 
 ---
 
 ## Primary principle
 
-The eventual goal is:
+The central objective is:
 
-> **Schooling should emerge because schooling improves survival, not because the reward explicitly tells fish to school.**
+> **Schooling should emerge because collective social behavior improves survival, not because the reward explicitly tells fish to school.**
 
-Therefore, the first reward should be deliberately simple.
+Therefore, the first reward should remain deliberately simple.
 
 Conceptually:
 
 ```text
-+ small reward for surviving
-- large penalty for capture
+small positive reward for surviving
++
+large negative reward for capture
 ```
 
-The major schooling signal should come indirectly through the environment:
+The schooling signal should arise indirectly:
 
 ```text
-healthy school state
+movement choice
       ↓
-lower capture probability
+local social configuration
       ↓
-higher expected future reward
+different capture probability
+      ↓
+different expected survival
+      ↓
+different long-term reward
 ```
 
 ---
 
-## Avoid this initially
+## Avoid explicit schooling rewards
 
-Do not start with:
+Do not initially use:
 
 ```text
 + alignment
 + cohesion
 + separation
-+ predator distance
-+ school centroid proximity
-+ etc.
++ school membership
++ distance to school centroid
++ number of neighbors
 ```
 
-because that risks turning the reward function itself into a hand-coded Boids objective.
+as direct reward terms.
 
 For example:
 
@@ -1159,25 +1434,23 @@ For example:
 reward += cohesion
 ```
 
-would make the experiment much less interesting because we explicitly told the agent that cohesion is good.
+would explicitly teach the agent that cohesion is desirable.
 
----
-
-## Reward shaping as a later experiment
-
-Small shaping terms can be introduced later if training proves difficult.
-
-However, every additional reward component should answer:
-
-> Is this helping the fish discover the intended survival strategy, or am I manually programming the behavior?
-
-This distinction should be maintained throughout the project.
+That would make it difficult to determine whether schooling emerged from survival pressure or simply from the reward function.
 
 ---
 
 ## Reward validation
 
-Before large training runs, evaluate several reward configurations using short experiments.
+Before long training runs, test the reward with simple policies.
+
+Compare:
+
+```text
+random policy
+rule-based policy
+simple heuristic policies
+```
 
 Track:
 
@@ -1185,29 +1458,23 @@ Track:
 episode reward
 survival time
 capture rate
-social integration
-schooling metrics
+social metrics
+school metrics
 ```
 
-The objective is to detect unintended incentives.
+The purpose is to detect unintended incentives.
 
-For example:
-
-```text
-agent learns to flee indefinitely
-```
-
-would be a warning that the reward/environment combination is not producing the desired problem.
+For example, a policy that survives by permanently escaping the fish population would require investigation even if its reward is high.
 
 ---
 
 ## Deliverable
 
-A documented first reward formulation and small validation experiments.
+A documented survival-oriented reward formulation with short validation experiments.
 
 ### Definition of done
 
-The reward is understandable mathematically, reproducible, and does not directly encode "form a school" as the primary objective.
+The reward is mathematically understandable, reproducible, and does not directly encode "form a school" as its primary objective.
 
 ### Git checkpoint
 
@@ -1219,11 +1486,11 @@ The reward is understandable mathematically, reproducible, and does not directly
 
 ## Goal
 
-Train a single fish to survive inside the rule-based school.
+Train one learning fish to survive inside the existing rule-based population.
 
-The first major hypothesis test is:
+The first question is:
 
-> **Can an individual fish learn behavior that improves its survival while remaining socially integrated?**
+> **Can an individual fish learn movement behavior that improves survival when local social configuration affects predation risk?**
 
 ---
 
@@ -1234,14 +1501,14 @@ Start with:
 ```text
 1 learning fish
 +
-rule-based school
+rule-based fish
 +
 1 predator
 ```
 
-Do not immediately train on every predator configuration.
+The rule-based population provides a moving social environment.
 
-First establish that learning works in the simplest environment.
+The learning fish must discover how to move within that environment while experiencing the survival consequences of its actions.
 
 ---
 
@@ -1249,12 +1516,14 @@ First establish that learning works in the simplest environment.
 
 Implement:
 
-* policy network
-* experience collection
-* training loop
-* checkpointing
-* evaluation mode
-* deterministic evaluation seeds
+```text
+policy network
+experience collection
+training loop
+checkpointing
+evaluation mode
+deterministic evaluation seeds
+```
 
 ---
 
@@ -1266,47 +1535,49 @@ Track at minimum:
 episode reward
 survival time
 capture rate
-social integration
-separation
+neighbor count
+neighbor distances
 alignment
 cohesion
+social integration / cluster participation
+predator exposure
 ```
 
-The most important question is not merely:
+The key question is not simply:
 
 ```text
 Did reward increase?
 ```
 
-but:
+It is:
 
 ```text
-Did survival improve while the fish remained connected to the school?
+Did survival improve because the fish learned
+a useful interaction with the surrounding population?
 ```
 
 ---
 
-## Visualization
+## Watch for shortcut strategies
 
-Show the learning fish with a visible marker.
+A learned fish could discover a strategy that improves survival without contributing to the eventual research question.
 
-Provide comparison modes:
+Examples include:
 
 ```text
-Rule-based fish
-vs
-Learning fish
+always flee from every fish
+remain near a boundary
+exploit a simulation artifact
+avoid all predator interactions by leaving the population
 ```
+
+These behaviors should be identified rather than automatically considered successful.
 
 ---
 
 ## Deliverable
 
-A trained model that can be loaded and evaluated independently of training.
-
-### Definition of done
-
-The training pipeline is reproducible and the trained fish can be evaluated across multiple trials.
+A reproducible trained policy for one learning fish that can be evaluated independently of training.
 
 ### Git checkpoint
 
@@ -1320,13 +1591,13 @@ The training pipeline is reproducible and the trained fish can be evaluated acro
 
 Determine what the first learning agent actually learned.
 
-Do not assume that increased survival means successful schooling.
+Do not assume that higher survival means successful social predator avoidance.
 
 ---
 
-## Compare
+## Compare policies
 
-Run controlled experiments between:
+Run controlled evaluations of:
 
 ```text
 random policy
@@ -1345,68 +1616,82 @@ For each policy, record:
 ```text
 survival rate
 time to capture
-social integration rate
-separation
+capture probability
+neighbor count
+neighbor distances
 alignment
 cohesion
-dispersion
+cluster participation
 predator distance
 ```
 
 ---
 
-## Critical analysis
+## Causal analysis
 
-Look for relationships such as:
+The most important analysis is:
 
 ```text
-social integration ↑
-        ↓
-capture probability ↓
-        ↓
-survival ↑
+local social state at time t
+             ↓
+capture probability after t
 ```
 
-The purpose of this stage is to determine whether the environment is producing the behavior we intended to study.
-
-A model that survives by simply fleeing far away should not be considered successful merely because it has a high survival score.
-
----
-
-## Ablation experiments
-
-Remove or alter individual information components:
+This allows us to distinguish:
 
 ```text
-without social observations
-without alignment information
-without cohesion information
-without separation information
-```
-
-This helps determine whether the learned strategy actually depends on local social information.
-
----
-
-## Deliverable
-
-A quantitative evaluation report describing the behavior of the first learning agent.
-
-### Definition of done
-
-We can distinguish:
-
-```text
-survival improvement
+"the fish survived"
 ```
 
 from:
 
 ```text
-successful social predator avoidance
+"the fish survived while using
+the social environment effectively"
 ```
 
-using measured results.
+---
+
+## Counterfactual evaluation
+
+Where practical, evaluate the learned policy under altered environmental mechanisms:
+
+```text
+normal social-risk mechanism
+vs
+reduced social-risk mechanism
+vs
+no social-risk mechanism
+```
+
+If the learned behavior only works when the intended social mechanism exists, that provides stronger evidence that the environment is actually producing the intended learning problem.
+
+---
+
+## Ablation of observations
+
+Remove selected observation components:
+
+```text
+without neighbor information
+without alignment information
+without cohesion information
+without spacing information
+```
+
+Then evaluate how behavior changes.
+
+This helps determine whether the learned policy is actually using local social information.
+
+---
+
+## Deliverable
+
+A quantitative evaluation of the first learned behavior and evidence about whether it is exploiting local social interactions rather than a simulation artifact.
+
+### Git checkpoint
+
+`iteration-11-controlled-learning-evaluation`
 
 ---
 
@@ -1414,9 +1699,9 @@ using measured results.
 
 ## Goal
 
-Move from one learning fish to an entire school of learning fish.
+Move from one learning fish to a population in which **all fish are learning agents**.
 
-This is the point where decentralized learning becomes the central experiment.
+This is where decentralized learning becomes the central experiment.
 
 ---
 
@@ -1450,9 +1735,7 @@ state transition
 
 ## Shared policy
 
-Start with parameter sharing so all fish can use the same policy.
-
-Conceptually:
+Start with parameter sharing:
 
 ```text
 Fish 1 ─┐
@@ -1462,23 +1745,23 @@ Fish 4 ─┤
 Fish N ─┘
 ```
 
-Each fish still receives its own local observation and takes its own action.
+Each fish still receives its own local observation and selects its own action.
 
-This keeps the first multi-agent problem manageable.
+The agents therefore remain decentralized even though they may share policy parameters.
 
 ---
 
-## Implicit communication
+## No explicit communication
 
-Do not give the agents explicit messages such as:
+Do not provide messages such as:
 
 ```text
 "move toward the center"
 "everyone turn left"
-"predator approaching from the east"
+"the school is under attack"
 ```
 
-Coordination should emerge through:
+Coordination should emerge from:
 
 ```text
 local observations
@@ -1494,25 +1777,30 @@ shared consequences
 
 ## Predator scenarios
 
-Once the one-predator case is working, extend evaluation to:
+Begin with the simplest case:
 
 ```text
 1 predator
+```
+
+Then evaluate:
+
+```text
 2 predators
 3+ predators
 ```
 
-using the scenarios already supported by the simulation.
+using the multi-predator capabilities already present in the simulation.
 
 ---
 
 ## Deliverable
 
-A school consisting entirely of learning agents.
+A simulation in which the entire fish population consists of learning agents operating from local information.
 
 ### Definition of done
 
-The simulation can run a fully learned school through repeated predator-attacked episodes.
+The learned population can repeatedly interact with predators without relying on hand-coded Boids rules for movement.
 
 ### Git checkpoint
 
@@ -1520,44 +1808,42 @@ The simulation can run a fully learned school through repeated predator-attacked
 
 ---
 
-# Iteration 13 — Test whether schooling actually emerges
+# Iteration 13 — Test whether schooling emerges
 
 ## Goal
 
 This is the central scientific evaluation of SchoolMind.
 
-The question becomes:
+The question is:
 
-> **Can decentralized fish agents develop schooling behavior because schooling improves survival?**
+> **Can decentralized fish agents develop schooling behavior because social organization improves individual survival?**
 
 ---
 
 ## Primary hypothesis
 
-We expect that agents may discover that being:
+The hypothesis is not:
 
 ```text
-appropriately separated
-+
-aligned with neighbors
-+
-cohesively connected
+"fish will definitely form a school."
 ```
 
-reduces their probability of capture.
+It is:
 
-However, this should be treated as an empirical hypothesis.
+> **When local social organization changes predation risk and agents optimize survival from local observations, collective schooling behavior may emerge.**
 
-The results may show:
+Possible outcomes include:
 
 ```text
 strong schooling
 partial schooling
+multiple schools
 different collective behavior
+weak coordination
 failure to school
 ```
 
-All of these outcomes are informative.
+All outcomes are informative.
 
 ---
 
@@ -1566,34 +1852,38 @@ All of these outcomes are informative.
 Evaluate:
 
 ```text
-A. rule-based Boids school
-
+A. rule-based Boids population
 B. independently trained learning fish
-
-C. jointly trained multi-agent school
+C. fully learned multi-agent population
 ```
 
 Where useful, also evaluate:
 
 ```text
-D. agents with restricted social observations
+D. learned agents with restricted social observations
 ```
 
 ---
 
 ## Key measurements
 
-Measure both individual and collective behavior:
+Measure both individual and population behavior:
 
 ```text
+survival rate
 capture probability
 survival time
-separation
+neighbor count
+neighbor distances
 alignment
 cohesion
-social integration rate
-dispersion
-polarization
+cluster count
+school count
+school fish fraction
+largest cluster fraction
+cluster polarization
+cluster dispersion
+global population metrics
 regrouping time
 ```
 
@@ -1601,27 +1891,71 @@ regrouping time
 
 ## Most important analysis
 
-Analyze the relationship between an individual fish's social state and its subsequent capture outcome.
-
-Conceptually:
+Analyze the relationship:
 
 ```text
-social state at time t
-          ↓
-capture probability during t → t + Δt
+local social state at time t
+             ↓
+predation probability
+             ↓
+survival
 ```
 
-This is much closer to the original biological idea than simply looking at whether the school "looks good."
+and separately:
+
+```text
+local decisions
+      ↓
+population-wide organization
+      ↓
+school formation / maintenance
+```
+
+This lets us distinguish a genuinely emergent collective behavior from an agent that merely learned to escape predators individually.
+
+---
+
+## Emergence criteria
+
+A learned population should not be called "schooling" simply because the fish occasionally become close.
+
+Evidence should involve multiple measurements, such as:
+
+```text
+persistent local connectivity
++
+reasonable spacing
++
+coordinated movement
++
+repeatable collective structure
+```
+
+The existing Iteration 6 metrics should provide the quantitative basis for this evaluation.
 
 ---
 
 ## Deliverable
 
-A research-style report answering:
+A research-style analysis answering:
 
-> Did schooling emerge from survival-driven decentralized learning?
+> **Did schooling emerge from survival-driven decentralized learning?**
 
-The report should include both quantitative measurements and visual examples.
+The analysis should include:
+
+```text
+quantitative results
++
+time-series plots
++
+individual capture analysis
++
+visual examples of learned behavior
+```
+
+### Git checkpoint
+
+`iteration-13-emergent-schooling`
 
 ---
 
@@ -1629,29 +1963,52 @@ The report should include both quantitative measurements and visual examples.
 
 ## Goal
 
-Determine whether the learned behavior is genuinely dependent on the intended mechanism or is exploiting an accidental feature of the simulation.
+Determine whether the learned behavior depends on the intended social-predation mechanism or exploits an accidental feature of the simulation.
 
 ---
 
-## Ablation studies
+## Environment ablations
 
 Test variants such as:
 
 ```text
-A. normal social-risk model
+A. full social-risk mechanism
 
-B. no social-risk advantage
+B. no dilution/confusion effect
 
-C. reduced social-risk advantage
+C. no local exposure effect
 
-D. no alignment information
+D. no crowding effect
 
-E. no cohesion information
-
-F. no separation information
+E. no social-risk mechanism
 ```
 
-The purpose is to determine which parts of the environment and observation space matter.
+The purpose is to determine which environmental mechanisms are actually responsible for the learned behavior.
+
+---
+
+## Observation ablations
+
+Also test:
+
+```text
+without neighbor observations
+without alignment information
+without cohesion information
+without spacing information
+```
+
+This separates:
+
+```text
+environmental cause
+```
+
+from:
+
+```text
+information available to the agent
+```
 
 ---
 
@@ -1663,36 +2020,33 @@ For example:
 
 ```text
 TRAIN
-school size: 100
+fish count: 75
 predator count: 1
-predator speed: 1.5
+predator speed: baseline
+capture cooldown: baseline
 ```
 
 Then evaluate under:
 
 ```text
-school size: 50
-school size: 200
-
-predator count: 2
-predator count: 3
-
+different fish counts
+2 predators
 different predator speeds
-
-different predator spawn patterns
+different capture cooldowns
+independent vs coordinated predators
 ```
 
----
-
-## Why this matters
-
-A policy that only survives under exactly the conditions used during training may have learned a narrow strategy rather than a more general behavior.
+The goal is to determine whether the learned strategy represents a general behavioral pattern or a narrow solution to one exact environment.
 
 ---
 
 ## Deliverable
 
-A generalization and ablation matrix showing how behavior changes under controlled modifications.
+A controlled ablation and generalization matrix showing how learned behavior changes when the environment or available information is modified.
+
+### Git checkpoint
+
+`iteration-14-ablation-generalization`
 
 ---
 
@@ -1700,7 +2054,16 @@ A generalization and ablation matrix showing how behavior changes under controll
 
 ## Goal
 
-Turn the experiment framework into a reusable research API capable of comparing policies, environmental mechanisms, and training configurations.
+Turn the experiment framework into a reusable research API capable of comparing:
+
+```text
+policies
+environment mechanisms
+training configurations
+predator scenarios
+```
+
+without modifying simulation source code for every experiment.
 
 ---
 
@@ -1728,34 +2091,40 @@ A future experiment could request:
 
 ```text
 Compare:
-
 1. rule-based fish
 2. trained single-agent policy
 3. trained multi-agent policy
+```
 
 across:
 
-- school sizes 50, 100, 200
-- 1, 2, and 3 predators
-- multiple predator spawn patterns
-
-Report:
-
-- survival
-- capture probability
-- social integration
-- cohesion
-- alignment
-- dispersion
+```text
+different fish populations
+1, 2, and 3 predators
+different predator speeds
+different coordination modes
+different social-risk mechanisms
 ```
 
-The existing reproducibility system from Iteration 5 should remain the foundation for this work.
+and report:
+
+```text
+survival
+capture probability
+social organization
+cluster structure
+alignment
+cohesion
+dispersion
+```
+
+The reproducibility system established earlier should remain the foundation.
 
 ---
 
 ## Deliverable
 
-A reusable evaluation layer that allows experiments to be defined without modifying simulation source code.
+A reusable evaluation layer that allows experiments to be defined without modifying the underlying simulation implementation.
 
 ---
 
@@ -1763,11 +2132,11 @@ A reusable evaluation layer that allows experiments to be defined without modify
 
 ## Goal
 
-Connect SchoolMind to the Hugging Face AI Agents concepts being learned in parallel.
+Connect SchoolMind to the AI-agent concepts being learned in parallel.
 
 The LLM should **not control individual fish**.
 
-Instead, it becomes a researcher that operates the experiment system.
+Instead, it becomes a research assistant that operates the experiment framework.
 
 ---
 
@@ -1795,16 +2164,18 @@ research-style explanation
 
 ## Example request
 
+A future user could ask:
+
 ```text
-Investigate whether increasing school size
-changes the relationship between social integration
-and survival under predatory attack.
+Investigate whether the relationship between
+local social organization and survival changes
+when predator density increases.
 ```
 
 The researcher could:
 
 ```text
-create experiment
+define experiment
         ↓
 run trials
         ↓
@@ -1821,9 +2192,9 @@ summarize findings
 
 ## Important constraint
 
-The LLM must not invent numerical results.
+The LLM must never invent numerical results.
 
-The deterministic SchoolMind code should:
+The deterministic SchoolMind system should:
 
 ```text
 run simulation
@@ -1831,21 +2202,16 @@ calculate metrics
 produce results
 ```
 
-while the LLM:
+while the researcher:
 
 ```text
 interprets
+compares
 explains
-and communicates
+communicates
 ```
 
 those results.
-
----
-
-## Deliverable
-
-A working research agent capable of operating SchoolMind through defined tools.
 
 ### Git checkpoint
 
@@ -1857,7 +2223,18 @@ A working research agent capable of operating SchoolMind through defined tools.
 
 ## Goal
 
-Give the project a polished research interface and persistent experiment history.
+Give SchoolMind a polished research interface and persistent experiment history.
+
+The final system should make it easy to:
+
+```text
+create experiments
+run experiments
+inspect results
+compare policies
+visualize schooling
+review previous findings
+```
 
 ---
 
@@ -1866,434 +2243,79 @@ Give the project a polished research interface and persistent experiment history
 Each experiment should retain:
 
 ```text
-experiment ID
-research question
-configuration
+experiment configuration
 random seeds
-environment configuration
-model/checkpoint
-reward configuration
-metrics
+simulation parameters
+policy/model information
+trial-level results
+social time series
+individual social measurements
+capture events
 plots
-timestamp
 analysis
 ```
 
-The researcher should be able to refer to previous experiments by ID.
+This allows previous experiments to be reproduced and compared.
 
 ---
 
-## Dashboard
+## Visual dashboard
 
-The eventual interface should contain:
-
-### Simulation
+The final interface can expose:
 
 ```text
-live simulation
-play / pause / reset
-scenario selection
-predator configuration
-model selection
+LIVE SIMULATION
+    ↓
+population metrics
+    ↓
+school / cluster structure
+    ↓
+capture events
+    ↓
+individual fish analysis
+    ↓
+experiment comparison
+    ↓
+AI researcher
 ```
 
-### Metrics
+Useful visualizations may include:
 
 ```text
-survival
-capture probability
-social integration
-separation
-alignment
-cohesion
-dispersion
-regrouping
+survival curves
+capture probability by social state
+cluster size distributions
+alignment over time
+neighbor-distance distributions
+school formation over time
+individual trajectories
+predator trajectories
 ```
 
-### Experiments
+---
 
-```text
-create experiment
-run batch
-compare experiments
-inspect trajectories
-```
+## Final research loop
 
-### AI Researcher
+The completed SchoolMind system should support:
 
 ```text
 research question
-tool execution
-experiment history
-analysis
-generated report
-```
-
----
-
-## Deliverable
-
-A single interface capable of demonstrating the complete SchoolMind workflow.
-
----
-
-# Iteration 18 — Final research and portfolio presentation
-
-## Goal
-
-Turn SchoolMind into a complete, reproducible research-style AI project.
-
-The final project should demonstrate the progression:
-
-```text
-hand-coded schooling
-        ↓
-predatory attack
-        ↓
-measurable social state
-        ↓
-social state affects predation risk
-        ↓
-RL environment
-        ↓
-individual learning
-        ↓
-multi-agent learning
-        ↓
-emergent collective behavior
-        ↓
-controlled experiments
-        ↓
-AI research agent
-```
-
----
-
-## Final README should explain
-
-1. Biological motivation
-2. Research hypothesis
-3. Simulation architecture
-4. Boids baseline
-5. Predator model
-6. Social-state definitions
-7. Predation-risk model
-8. RL environment
-9. Reward design
-10. Multi-agent architecture
-11. Experimental methodology
-12. Results
-13. Ablation studies
-14. Generalization experiments
-15. AI researcher architecture
-16. How to reproduce the experiments
-17. How to run the project locally
-18. Future research directions
-
----
-
-# Suggested milestone timeline
-
-The roadmap now follows the research logic of the project:
-
-```text
-FOUNDATION
-│
-├── 0. Development environment
-├── 1. Basic simulation
-├── 2. Fish physics
-│
-▼
-RULE-BASED BASELINE
-│
-├── 3. Boids schooling
-├── 4. Predator simulation
-├── 5. Experiment framework
-│
-▼
-RESEARCH MECHANISM
-│
-├── 6. Measure schooling state
-├── 7. Establish social-state → predation-risk mechanism
-│
-▼
-SINGLE-AGENT LEARNING
-│
-├── 8. RL environment
-├── 9. Survival-driven reward
-├── 10. First learning fish
-├── 11. Controlled evaluation
-│
-▼
-MULTI-AGENT LEARNING
-│
-├── 12. Multi-agent RL
-├── 13. Emergent schooling experiments
-├── 14. Ablation / robustness / generalization
-│
-▼
-RESEARCH PLATFORM
-│
-├── 15. Experiment and evaluation interface
-├── 16. AI researcher
-├── 17. Research memory + dashboard
-│
-▼
-PORTFOLIO
-│
-└── 18. Final research presentation
-```
-
----
-
-# Core research question
-
-The entire project should ultimately revolve around one central question:
-
-> **Can decentralized reinforcement-learning agents develop schooling behavior because being socially integrated reduces their probability of being captured by predators?**
-
-This question should guide the design of the environment, observations, rewards, experiments, and evaluation.
-
----
-
-# Secondary research questions
-
-Once the central mechanism works, the following become natural extensions.
-
-### School size
-
-Does school size change the survival advantage of social integration?
-
-### Predator pressure
-
-How does the relationship between schooling and survival change as predator speed or predator count increases?
-
-### Local information
-
-How much information about nearby fish is necessary for useful schooling to emerge?
-
-### Separation, alignment, and cohesion
-
-Which aspects of local social state contribute most strongly to reduced predation risk and successful collective behavior?
-
-### Predator geometry
-
-Does the spatial arrangement of predators change the effectiveness of schooling?
-
-### Communication
-
-Can useful collective behavior emerge without explicit inter-agent communication?
-
-### Generalization
-
-Does a learned schooling strategy transfer to unseen school sizes, predator configurations, and attack scenarios?
-
----
-
-# What not to do
-
-Do not jump directly into complex RL algorithms.
-
-Do not make every fish learn before the single-agent problem is understood.
-
-Do not use a giant observation vector "just in case."
-
-Do not define the reward primarily as:
-
-```text
-reward = alignment + cohesion + separation
-```
-
-because that directly programs the behavior we want to observe emerging.
-
-Do not make socially integrated fish invulnerable.
-
-Do not make isolated fish automatically die.
-
-Do not judge learning from one simulation.
-
-Do not treat visual schooling as proof of successful learning.
-
-Do not change many experimental variables simultaneously when testing a hypothesis.
-
-Do not add the LLM researcher until the simulation and experiment framework can produce trustworthy results without it.
-
----
-
-# Reproducibility requirements
-
-Every experiment should record enough information to reproduce the result.
-
-At minimum:
-
-```text
-experiment_id
-random_seed
-school_size
-predator_count
-predator_speed
-predator_spawn_pattern
-predator_coordination_mode
-simulation_duration
-behavior_model
-RL_model/checkpoint
-reward configuration
-environment configuration
-social-risk configuration
+      ↓
+hypothesis / experiment design
+      ↓
+simulation
+      ↓
+repeated trials
+      ↓
 metrics
+      ↓
+statistical / visual analysis
+      ↓
+interpretation
+      ↓
+new experiment
 ```
 
-A result should always be traceable to the exact conditions that produced it.
+The long-term goal is not merely to produce fish that look like they are schooling.
 
----
-
-# Testing strategy
-
-Tests should be added continuously.
-
-## Simulation tests
-
-Examples:
-
-```text
-fish movement is correct
-velocity limits are respected
-separation produces the expected steering direction
-predator capture occurs correctly
-```
-
-## Social-state tests
-
-Examples:
-
-```text
-separation metric is correct
-alignment metric is correct
-cohesion metric is correct
-social integration classification is deterministic
-```
-
-## Predation-risk tests
-
-Examples:
-
-```text
-social risk stays within configured bounds
-healthy social state reduces expected capture risk
-poor social state increases expected capture risk
-risk remains probabilistic
-```
-
-## Experiment tests
-
-Examples:
-
-```text
-random seeds are reproducible
-batch runner creates the expected number of trials
-metrics are deterministic for a fixed trial
-results preserve experiment configuration
-```
-
-## RL tests
-
-Examples:
-
-```text
-environment reset works
-environment step returns valid data
-observations have the expected shape
-actions are accepted correctly
-checkpoints save and load
-evaluation can run without exploration
-```
-
----
-
-# Suggested Git workflow
-
-Maintain clear checkpoints for major research stages.
-
-```text
-iteration-1-basic-simulation
-iteration-2-fish-physics
-iteration-3-emergent-schooling
-iteration-4-predator
-iteration-5-experiment-framework
-iteration-6-schooling-metrics
-iteration-7-social-predation-risk
-iteration-8-rl-environment
-iteration-9-survival-reward
-iteration-10-first-learning-fish
-iteration-11-controlled-evaluation
-iteration-12-multi-agent-learning
-...
-```
-
-Suggested commit style:
-
-```text
-feat: add schooling state metrics
-feat: model social predation risk
-feat: add RL environment
-feat: implement survival-driven reward
-feat: train first learning fish
-feat: add multi-agent learning
-feat: add emergent schooling experiments
-```
-
----
-
-# Definition of success
-
-SchoolMind is successful when the following sequence can be demonstrated experimentally:
-
-```text
-1. Start with hand-coded Boids schooling.
-
-2. Introduce predator attacks.
-
-3. Measure separation, alignment, cohesion,
-   and individual social integration.
-
-4. Establish that social state affects capture probability.
-
-5. Create an RL environment where a fish can
-   observe its local environment and act.
-
-6. Train an individual fish using a primarily
-   survival-driven reward.
-
-7. Evaluate whether the learned fish becomes
-   socially integrated while surviving.
-
-8. Scale the problem to a school of learning agents.
-
-9. Demonstrate whether collective schooling
-   emerges from decentralized learning.
-
-10. Measure the relationship between social
-    integration and survival.
-
-11. Test the result using controlled ablations
-    and unseen environments.
-
-12. Use the experiment framework to reproduce
-    the findings.
-
-13. Allow an AI research agent to formulate,
-    run, analyze, and explain experiments.
-
-14. Produce a research-style report grounded
-    in actual simulation results.
-```
-
-The ultimate objective is therefore not simply:
-
-> "Train fish to avoid predators."
-
-It is:
-
-> **Create an environment in which individual fish can discover through reinforcement learning that appropriate social organization improves survival, and investigate whether this local survival incentive is sufficient for collective schooling behavior to emerge.**
-
-That distinction should remain the guiding principle for every stage after Iteration 5.
+The goal is to create a **research system in which schooling can emerge from decentralized survival-driven learning and then be quantitatively investigated.**
