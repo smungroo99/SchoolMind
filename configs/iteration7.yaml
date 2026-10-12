@@ -1,0 +1,41 @@
+experiment:
+  name: iteration7_social_predation_risk
+  random_seed: 42
+  simulation_duration: 30.0
+  trials: 10
+  metrics_sample_interval: 0.5
+
+simulation:
+  fish_count: 75
+  fish_speed: 225.0
+  predator_count: 1
+
+  fish_boundary_margin: 100.0
+  predator_boundary_margin: 0.0
+
+  predator_max_speed: 170.0
+  predator_capture_radius: 12.0
+  predator_capture_cooldown: 1.5
+  predator_coordination_mode: independent
+
+  predation_baseline_hazard: 4.0
+  predation_social_radius: 100.0
+
+  predation_exposure_strength: 1.5
+  predation_exposure_saturation: 2.0
+
+  predation_dilution_strength: 0.35
+  predation_dilution_saturation: 4.0
+
+  predation_confusion_strength: 0.35
+  predation_confusion_saturation: 4.0
+  predation_confusion_distance_scale: 50.0
+
+  predation_crowding_strength: 0.75
+  predation_crowding_distance: 15.0
+  predation_crowding_scale: 5.0
+
+  separation_weight: 1.5
+  alignment_weight: 1.0
+  cohesion_weight: 0.8
+  predator_avoidance_weight: 3.0

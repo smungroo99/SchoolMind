@@ -19,6 +19,7 @@ from schoolmind.experiments.social_metrics import (
 )
 from schoolmind.simulation.world import World
 
+
 def get_trial_seed(
     base_seed: int,
     trial_index: int,
@@ -30,6 +31,7 @@ def get_trial_seed(
     and so on.
     """
     return base_seed + trial_index - 1
+
 
 def run_trial(
     experiment_config: ExperimentConfig,
@@ -143,9 +145,15 @@ def run_trial(
         "individual_social_time_series": (
             individual_social_time_series
         ),
-        "capture_events": world.capture_events,
+        "capture_attempts": (
+            world.capture_attempts
+        ),
+        "capture_events": (
+            world.capture_events
+        ),
         **calculate_trial_metrics(world),
     }
+
 
 def run_batch(
     experiment_config: ExperimentConfig,
