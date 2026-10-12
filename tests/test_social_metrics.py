@@ -427,6 +427,7 @@ def test_individual_social_snapshot() -> None:
         for snapshot in snapshots
     )
 
+
 def test_social_metrics_csv_is_written(
     tmp_path: Path,
 ) -> None:
@@ -567,6 +568,7 @@ def test_capture_events_record_fish_and_predator() -> None:
     config = SimulationConfig(
         fish_count=1,
         predator_count=1,
+        predation_baseline_hazard=1_000_000_000.0,
     )
 
     world = World(

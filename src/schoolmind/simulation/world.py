@@ -13,6 +13,9 @@ from schoolmind.simulation.config import (
 )
 from schoolmind.simulation.fish import Fish
 from schoolmind.simulation.predator import Predator
+from schoolmind.simulation.predation_risk import (
+    calculate_capture_risk,
+)
 
 
 class World:
@@ -29,13 +32,13 @@ class World:
         self.predators: list[Predator] = []
 
         self.initial_fish_count = config.fish_count
-
         self.elapsed_time = 0.0
         self.fish_captured = 0
         self.first_capture_time: float | None = None
         self.extinction_time: float | None = None
 
         self.capture_events: list[dict] = []
+        self.capture_attempts: list[dict] = []
 
         self._spawn_fish()
         self._spawn_predators()
@@ -126,7 +129,10 @@ class World:
 
             self.predators.append(predator)
 
-    def update(self, dt: float) -> None:
+    def update(
+        self,
+        dt: float,
+    ) -> None:
         self.elapsed_time += dt
 
         # Cooldowns progress continuously while predators move.
@@ -312,21 +318,56 @@ class World:
                     closest_distance = distance
                     closest_fish = fish
 
-            if closest_fish is not None:
-                captured_fish.append(
-                    closest_fish
-                )
+            if closest_fish is None:
+                continue
 
-                self.capture_events.append(
-                    {
-                        "time": self.elapsed_time,
-                        "fish_id": closest_fish.fish_id,
-                        "predator_id": predator.id,
-                    }
-                )
+            risk = calculate_capture_risk(
+                target=closest_fish,
+                predator=predator,
+                all_fish=self.fish,
+                config=self.config,
+                dt=(
+                    1.0
+                    / self.config.fps
+                ),
+            )
 
-                predator.target = None
-                predator.register_capture()
+            captured = (
+                self.rng.random()
+                < risk["capture_probability"]
+            )
+
+            self.capture_attempts.append(
+                {
+                    "time": self.elapsed_time,
+                    "fish_id": (
+                        closest_fish.fish_id
+                    ),
+                    "predator_id": predator.id,
+                    **risk,
+                    "captured": captured,
+                }
+            )
+
+            if not captured:
+                continue
+
+            captured_fish.append(
+                closest_fish
+            )
+
+            self.capture_events.append(
+                {
+                    "time": self.elapsed_time,
+                    "fish_id": (
+                        closest_fish.fish_id
+                    ),
+                    "predator_id": predator.id,
+                }
+            )
+
+            predator.target = None
+            predator.register_capture()
 
         if not captured_fish:
             return
@@ -388,6 +429,7 @@ class World:
         self.fish.clear()
         self.predators.clear()
         self.capture_events.clear()
+        self.capture_attempts.clear()
 
         self.elapsed_time = 0.0
         self.fish_captured = 0

@@ -103,6 +103,7 @@ def test_predator_cannot_capture_twice_during_cooldown() -> None:
         fish_count=2,
         predator_count=1,
         predator_capture_cooldown=1.5,
+        predation_baseline_hazard=1_000_000_000.0,
     )
 
     world = World(
@@ -148,6 +149,7 @@ def test_predator_can_capture_again_after_cooldown() -> None:
         fish_count=2,
         predator_count=1,
         predator_capture_cooldown=1.5,
+        predation_baseline_hazard=1_000_000_000.0,
     )
 
     world = World(

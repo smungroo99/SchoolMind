@@ -46,7 +46,9 @@ def create_experiment_id(
         "%Y%m%dT%H%M%S_%fZ"
     )
 
-    return f"{safe_name}_{timestamp}"
+    return (
+        f"{safe_name}_{timestamp}"
+    )
 
 
 def get_git_commit() -> str:
@@ -109,7 +111,6 @@ def write_results(
     Persist all outputs associated with an experiment.
 
     Files written:
-
     - config.yaml
     - resolved_config.yaml
     - results.json
@@ -117,6 +118,7 @@ def write_results(
     - social_metrics.csv
     - cluster_social_metrics.csv
     - individual_social_metrics.csv
+    - capture_attempts.csv
     - capture_events.csv
     """
     if output_directory.exists():
@@ -170,15 +172,21 @@ def write_results(
     )
 
     metadata = {
-        "experiment_id": experiment_id,
-        "created_at_utc": datetime.now(
-            timezone.utc
-        ).isoformat(),
+        "experiment_id": (
+            experiment_id
+        ),
+        "created_at_utc": (
+            datetime.now(
+                timezone.utc
+            ).isoformat()
+        ),
         "python_version": sys.version,
         "schoolmind_version": (
             get_schoolmind_version()
         ),
-        "git_commit": get_git_commit(),
+        "git_commit": (
+            get_git_commit()
+        ),
         "base_seed": (
             experiment_config
             .experiment
@@ -443,7 +451,71 @@ def write_results(
                 )
 
     # --------------------------------------------------------------
-    # Capture events
+    # Capture attempts
+    # --------------------------------------------------------------
+
+    capture_attempt_fields = [
+        "experiment_id",
+        "trial_index",
+        "seed",
+        "time",
+        "fish_id",
+        "predator_id",
+        "predator_distance",
+        "neighbor_count",
+        "nearest_neighbor_distance",
+        "mean_neighbor_distance",
+        "alignment",
+        "cohesion_distance",
+        "exposure",
+        "dilution",
+        "confusion",
+        "crowding",
+        "exposure_multiplier",
+        "dilution_multiplier",
+        "confusion_multiplier",
+        "crowding_multiplier",
+        "capture_hazard",
+        "capture_probability",
+        "captured",
+    ]
+
+    with (
+        output_directory
+        / "capture_attempts.csv"
+    ).open(
+        "w",
+        encoding="utf-8",
+        newline="",
+    ) as file:
+        writer = csv.DictWriter(
+            file,
+            fieldnames=capture_attempt_fields,
+            extrasaction="ignore",
+        )
+
+        writer.writeheader()
+
+        for result in results:
+            for attempt in result.get(
+                "capture_attempts",
+                [],
+            ):
+                writer.writerow(
+                    {
+                        "experiment_id": (
+                            experiment_id
+                        ),
+                        "trial_index": (
+                            result["trial_index"]
+                        ),
+                        "seed": result["seed"],
+                        **attempt,
+                    }
+                )
+
+    # --------------------------------------------------------------
+    # Successful capture events
     # --------------------------------------------------------------
 
     capture_event_fields = [
@@ -466,6 +538,7 @@ def write_results(
         writer = csv.DictWriter(
             file,
             fieldnames=capture_event_fields,
+            extrasaction="ignore",
         )
 
         writer.writeheader()
