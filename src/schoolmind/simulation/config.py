@@ -1,3 +1,4 @@
+
 from dataclasses import dataclass
 
 
@@ -55,8 +56,8 @@ class SimulationConfig:
     predation_crowding_distance: float = 15.0
     predation_crowding_scale: float = 5.0
 
+    predation_dispersion_strength: float = 0.5
+    predation_cohesion_strength: float = 0.5
+
     # Predator behavior
     predator_coordination_mode: str = "independent"
-
-    # Options:
-    # "coordinated", "independent"

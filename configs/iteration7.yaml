@@ -1,3 +1,4 @@
+
 experiment:
   name: iteration7_social_predation_risk
   random_seed: 42
@@ -34,6 +35,9 @@ simulation:
   predation_crowding_strength: 0.75
   predation_crowding_distance: 15.0
   predation_crowding_scale: 5.0
+
+  predation_dispersion_strength: 0.5
+  predation_cohesion_strength: 0.5
 
   separation_weight: 1.5
   alignment_weight: 1.0
