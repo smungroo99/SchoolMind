@@ -10,6 +10,10 @@ from schoolmind.simulation.fish import Fish
 from schoolmind.simulation.predator import Predator
 
 
+DEFAULT_PREDATION_DISPERSION_STRENGTH = 0.5
+DEFAULT_PREDATION_COHESION_STRENGTH = 0.5
+
+
 def _clamp(
     value: float,
     minimum: float = 0.0,
@@ -46,6 +50,7 @@ def _get_neighbors(
     radius: float,
 ) -> list[Fish]:
     neighbors: list[Fish] = []
+
     for fish in all_fish:
         if fish is target:
             continue
@@ -80,6 +85,7 @@ def _calculate_local_social_state(
         )
         for neighbor in neighbors
     ]
+
     nearest_neighbor_distance = min(
         distances
     )
@@ -95,12 +101,11 @@ def _calculate_local_social_state(
             if neighbor.velocity.length_squared() == 0:
                 continue
 
-            cosine_similarity = (
-                _cosine_similarity(
-                    target.velocity,
-                    neighbor.velocity,
-                )
+            cosine_similarity = _cosine_similarity(
+                target.velocity,
+                neighbor.velocity,
             )
+
             alignment_scores.append(
                 (cosine_similarity + 1.0) / 2.0
             )
@@ -123,6 +128,7 @@ def _calculate_local_social_state(
             local_center
         )
     )
+
     return {
         "neighbor_count": len(neighbors),
         "nearest_neighbor_distance": (
@@ -153,10 +159,6 @@ def calculate_exposure(
     - Its body intersects the direct line between them.
     - It is within the configured exposure radius of the target.
 
-    A fish with no nearby shielding fish has exposure near 1.
-    Nearby fish that genuinely obstruct the predator's view
-    reduce exposure.
-
     Returns a value in [0, 1].
     """
     if exposure_radius <= 0:
@@ -169,7 +171,6 @@ def calculate_exposure(
             "exposure_saturation must be greater than zero."
         )
 
-    # Direction from the target toward the predator.
     target_to_predator = (
         predator.position - target.position
     )
@@ -190,21 +191,18 @@ def calculate_exposure(
         if distance == 0 or distance > exposure_radius:
             continue
 
-        # Project the neighbor onto the line from the target
-        # toward the predator. Its center must be between
-        # the target and predator, not behind the predator.
         projection_distance = offset.dot(
             attack_direction
         )
 
+        # The neighbor must lie between the target
+        # and predator, not behind the predator.
         if (
             projection_distance <= 0
             or projection_distance >= predator_distance
         ):
             continue
 
-        # Measure the perpendicular distance from the
-        # neighbor's center to the predator-target line.
         perpendicular_offset = (
             offset
             - attack_direction * projection_distance
@@ -213,27 +211,22 @@ def calculate_exposure(
             perpendicular_offset.length()
         )
 
-        # The neighboring fish can shield the target only
-        # if its body intersects the predator-target line.
         blocking_radius = float(neighbor.radius)
 
         if blocking_radius <= 0:
             if perpendicular_distance > 1e-9:
                 continue
+
             line_weight = 1.0
         else:
             if perpendicular_distance >= blocking_radius:
                 continue
 
-            # Shielding decreases smoothly as the neighbor's
-            # center approaches the edge of its blocking radius.
             line_weight = (
                 1.0
                 - perpendicular_distance / blocking_radius
             )
 
-        # Alignment of the target-to-neighbor direction
-        # with the target-to-predator direction.
         facing_alignment = (
             projection_distance / distance
         )
@@ -258,6 +251,66 @@ def calculate_exposure(
     )
 
 
+def calculate_dispersion(
+    neighbor_count: int,
+    mean_neighbor_distance: float | None,
+    social_radius: float,
+) -> float:
+    """
+    Estimate how dispersed a target is from its neighbors.
+
+    A large mean distance relative to social_radius produces
+    a higher risk score. An isolated fish receives a score of 1.
+
+    Returns a value in [0, 1].
+    """
+    if social_radius <= 0:
+        raise ValueError(
+            "social_radius must be greater than zero."
+        )
+
+    if (
+        neighbor_count <= 0
+        or mean_neighbor_distance is None
+    ):
+        return 1.0
+
+    return _clamp(
+        mean_neighbor_distance / social_radius
+    )
+
+
+def calculate_cohesion(
+    neighbor_count: int,
+    cohesion_distance: float | None,
+    social_radius: float,
+) -> float:
+    """
+    Estimate how far a target is from the center of its
+    local group.
+
+    A fish close to its neighbors' center receives a low
+    risk score. A fish far from that center receives a high
+    risk score. An isolated fish receives a score of 1.
+
+    Returns a value in [0, 1].
+    """
+    if social_radius <= 0:
+        raise ValueError(
+            "social_radius must be greater than zero."
+        )
+
+    if (
+        neighbor_count <= 0
+        or cohesion_distance is None
+    ):
+        return 1.0
+
+    return _clamp(
+        cohesion_distance / social_radius
+    )
+
+
 def calculate_dilution(
     neighbor_count: int,
     saturation: float,
@@ -276,6 +329,7 @@ def calculate_dilution(
 
     if neighbor_count <= 0:
         return 0.0
+
     return _clamp(
         1.0 - math.exp(
             -neighbor_count / saturation
@@ -292,10 +346,11 @@ def calculate_confusion(
 ) -> float:
     """
     Estimate predator target ambiguity created by nearby fish.
+
     A neighboring fish contributes more when:
-    - it is close to the target,
-    - it is moving similarly to the target,
-    - it appears in a similar visual direction from the predator.
+    - It is close to the target.
+    - It moves similarly to the target.
+    - It appears in a similar visual direction from the predator.
 
     Returns a value in [0, 1].
     """
@@ -330,6 +385,7 @@ def calculate_confusion(
                 neighbor.position
             )
         )
+
         if target_distance == 0:
             continue
 
@@ -369,8 +425,7 @@ def calculate_confusion(
             )
 
         distance_weight = math.exp(
-            -target_distance
-            / distance_scale
+            -target_distance / distance_scale
         )
 
         competitor_signal += (
@@ -395,8 +450,7 @@ def calculate_crowding(
     Estimate excessive local crowding.
 
     A fish with no neighbors has zero crowding.
-    Crowding rises smoothly as the nearest neighbor becomes
-    very close.
+    Crowding rises as the nearest neighbor becomes very close.
 
     Returns a value in [0, 1].
     """
@@ -404,6 +458,7 @@ def calculate_crowding(
         raise ValueError(
             "crowding_distance cannot be negative."
         )
+
     if crowding_scale <= 0:
         raise ValueError(
             "crowding_scale must be greater than zero."
@@ -413,14 +468,12 @@ def calculate_crowding(
         return 0.0
 
     exponent = (
-        nearest_neighbor_distance
-        - crowding_distance
+        nearest_neighbor_distance - crowding_distance
     ) / crowding_scale
 
     return _clamp(
         1.0 / (
-            1.0
-            + math.exp(exponent)
+            1.0 + math.exp(exponent)
         )
     )
 
@@ -435,44 +488,62 @@ def calculate_capture_hazard(
     dilution_strength: float,
     confusion_strength: float,
     crowding_strength: float,
+    dispersion: float = 0.0,
+    cohesion: float = 0.0,
+    dispersion_strength: float = (
+        DEFAULT_PREDATION_DISPERSION_STRENGTH
+    ),
+    cohesion_strength: float = (
+        DEFAULT_PREDATION_COHESION_STRENGTH
+    ),
 ) -> dict[str, float]:
     """
-    Combine the four independent social-risk mechanisms.
+    Combine social-risk mechanisms into a capture hazard.
 
-    The resulting hazard is:
-        baseline
-        * exposure multiplier
-        * dilution multiplier
-        * confusion multiplier
-        * crowding multiplier
+    Exposure, crowding, dispersion, and poor cohesion increase
+    hazard. Dilution and confusion reduce hazard.
 
-    Exposure and crowding increase hazard.
-    Dilution and confusion decrease hazard.
+    Dispersion and cohesion strengths are initial defaults.
+    They can be overridden by SimulationConfig attributes
+    with names predation_dispersion_strength and
+    predation_cohesion_strength.
     """
     if baseline_hazard < 0:
         raise ValueError(
             "baseline_hazard cannot be negative."
         )
 
+    exposure = _clamp(exposure)
+    dilution = _clamp(dilution)
+    confusion = _clamp(confusion)
+    crowding = _clamp(crowding)
+    dispersion = _clamp(dispersion)
+    cohesion = _clamp(cohesion)
+
     exposure_multiplier = (
-        1.0
-        + exposure_strength * exposure
+        1.0 + exposure_strength * exposure
     )
+
     dilution_multiplier = max(
         0.1,
-        1.0
-        - dilution_strength * dilution,
+        1.0 - dilution_strength * dilution,
     )
 
     confusion_multiplier = max(
         0.1,
-        1.0
-        - confusion_strength * confusion,
+        1.0 - confusion_strength * confusion,
     )
 
     crowding_multiplier = (
-        1.0
-        + crowding_strength * crowding
+        1.0 + crowding_strength * crowding
+    )
+
+    dispersion_multiplier = (
+        1.0 + dispersion_strength * dispersion
+    )
+
+    cohesion_multiplier = (
+        1.0 + cohesion_strength * cohesion
     )
 
     hazard = (
@@ -481,20 +552,17 @@ def calculate_capture_hazard(
         * dilution_multiplier
         * confusion_multiplier
         * crowding_multiplier
+        * dispersion_multiplier
+        * cohesion_multiplier
     )
+
     return {
-        "exposure_multiplier": (
-            exposure_multiplier
-        ),
-        "dilution_multiplier": (
-            dilution_multiplier
-        ),
-        "confusion_multiplier": (
-            confusion_multiplier
-        ),
-        "crowding_multiplier": (
-            crowding_multiplier
-        ),
+        "exposure_multiplier": exposure_multiplier,
+        "dilution_multiplier": dilution_multiplier,
+        "confusion_multiplier": confusion_multiplier,
+        "crowding_multiplier": crowding_multiplier,
+        "dispersion_multiplier": dispersion_multiplier,
+        "cohesion_multiplier": cohesion_multiplier,
         "capture_hazard": hazard,
     }
 
@@ -518,6 +586,7 @@ def calculate_capture_probability(
         raise ValueError(
             "dt must be greater than zero."
         )
+
     return _clamp(
         -math.expm1(
             -capture_hazard * dt
@@ -536,39 +605,51 @@ def calculate_capture_risk(
     Calculate the complete predation-risk state for one
     predator-target capture check.
 
-    This function is deterministic. Randomness is applied by
-    World when the resulting capture probability is sampled.
+    This function is deterministic. Randomness is applied
+    by World when the resulting capture probability is sampled.
     """
+    social_radius = config.predation_social_radius
+
     neighbors = _get_neighbors(
         target=target,
         all_fish=all_fish,
-        radius=config.predation_social_radius,
+        radius=social_radius,
     )
 
     social_state = _calculate_local_social_state(
         target=target,
         neighbors=neighbors,
     )
+
     exposure = calculate_exposure(
         target=target,
         predator=predator,
         neighbors=neighbors,
-        exposure_radius=(
-            config.predation_social_radius
-        ),
+        exposure_radius=social_radius,
         exposure_saturation=(
             config.predation_exposure_saturation
         ),
     )
 
-    dilution = calculate_dilution(
-        neighbor_count=social_state[
-            "neighbor_count"
-        ],
-        saturation=(
-            config.predation_dilution_saturation
+    dispersion = calculate_dispersion(
+        neighbor_count=social_state["neighbor_count"],
+        mean_neighbor_distance=(
+            social_state["mean_neighbor_distance"]
         ),
+        social_radius=social_radius,
     )
+
+    cohesion = calculate_cohesion(
+        neighbor_count=social_state["neighbor_count"],
+        cohesion_distance=social_state["cohesion_distance"],
+        social_radius=social_radius,
+    )
+
+    dilution = calculate_dilution(
+        neighbor_count=social_state["neighbor_count"],
+        saturation=config.predation_dilution_saturation,
+    )
+
     confusion = calculate_confusion(
         target=target,
         predator=predator,
@@ -576,15 +657,12 @@ def calculate_capture_risk(
         distance_scale=(
             config.predation_confusion_distance_scale
         ),
-        saturation=(
-            config.predation_confusion_saturation
-        ),
+        saturation=config.predation_confusion_saturation,
     )
+
     crowding = calculate_crowding(
         nearest_neighbor_distance=(
-            social_state[
-                "nearest_neighbor_distance"
-            ]
+            social_state["nearest_neighbor_distance"]
         ),
         crowding_distance=(
             config.predation_crowding_distance
@@ -593,50 +671,53 @@ def calculate_capture_risk(
             config.predation_crowding_scale
         ),
     )
+
+    dispersion_strength = getattr(
+        config,
+        "predation_dispersion_strength",
+        DEFAULT_PREDATION_DISPERSION_STRENGTH,
+    )
+
+    cohesion_strength = getattr(
+        config,
+        "predation_cohesion_strength",
+        DEFAULT_PREDATION_COHESION_STRENGTH,
+    )
+
     hazard_components = calculate_capture_hazard(
-        baseline_hazard=(
-            config.predation_baseline_hazard
-        ),
+        baseline_hazard=config.predation_baseline_hazard,
         exposure=exposure,
         dilution=dilution,
         confusion=confusion,
         crowding=crowding,
-        exposure_strength=(
-            config.predation_exposure_strength
-        ),
-        dilution_strength=(
-            config.predation_dilution_strength
-        ),
-        confusion_strength=(
-            config.predation_confusion_strength
-        ),
-        crowding_strength=(
-            config.predation_crowding_strength
-        ),
+        exposure_strength=config.predation_exposure_strength,
+        dilution_strength=config.predation_dilution_strength,
+        confusion_strength=config.predation_confusion_strength,
+        crowding_strength=config.predation_crowding_strength,
+        dispersion=dispersion,
+        cohesion=cohesion,
+        dispersion_strength=dispersion_strength,
+        cohesion_strength=cohesion_strength,
     )
-    capture_hazard = hazard_components[
-        "capture_hazard"
-    ]
 
-    capture_probability = (
-        calculate_capture_probability(
-            capture_hazard=capture_hazard,
-            dt=dt,
-        )
+    capture_hazard = hazard_components["capture_hazard"]
+
+    capture_probability = calculate_capture_probability(
+        capture_hazard=capture_hazard,
+        dt=dt,
     )
+
     return {
         "predator_distance": (
-            predator.position.distance_to(
-                target.position
-            )
+            predator.position.distance_to(target.position)
         ),
         **social_state,
         "exposure": exposure,
+        "dispersion": dispersion,
+        "cohesion": cohesion,
         "dilution": dilution,
         "confusion": confusion,
         "crowding": crowding,
         **hazard_components,
-        "capture_probability": (
-            capture_probability
-        ),
+        "capture_probability": capture_probability,
     }
