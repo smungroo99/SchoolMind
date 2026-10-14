@@ -57,6 +57,29 @@ def make_predator(
     )
 
 
+def _hazard_with_fixed_other_factors(
+    **overrides: float,
+) -> dict[str, float]:
+    """Calculate hazard while keeping unspecified inputs constant."""
+    parameters: dict[str, float] = {
+        "baseline_hazard": 4.0,
+        "exposure": 0.0,
+        "dilution": 0.0,
+        "confusion": 0.0,
+        "crowding": 0.0,
+        "exposure_strength": 1.5,
+        "dilution_strength": 0.35,
+        "confusion_strength": 0.35,
+        "crowding_strength": 0.75,
+        "dispersion": 0.0,
+        "cohesion": 0.0,
+        "dispersion_strength": 0.5,
+        "cohesion_strength": 0.5,
+    }
+    parameters.update(overrides)
+    return calculate_capture_hazard(**parameters)
+
+
 def test_isolated_fish_has_maximum_exposure() -> None:
     target = make_fish(0, (500.0, 350.0), (100.0, 0.0))
     predator = make_predator((512.0, 350.0))
@@ -144,6 +167,44 @@ def test_neighbor_off_predator_target_line_does_not_shield() -> None:
     assert exposure == 1.0
 
 
+def test_shielding_alone_reduces_capture_hazard() -> None:
+    target = make_fish(0, (500.0, 350.0), (100.0, 0.0))
+    predator = make_predator((550.0, 350.0))
+    shielding_neighbor = make_fish(
+        1,
+        (525.0, 350.0),
+        (100.0, 0.0),
+    )
+
+    exposure_without_shield = calculate_exposure(
+        target=target,
+        predator=predator,
+        neighbors=[],
+        exposure_radius=100.0,
+        exposure_saturation=2.0,
+    )
+    exposure_with_shield = calculate_exposure(
+        target=target,
+        predator=predator,
+        neighbors=[shielding_neighbor],
+        exposure_radius=100.0,
+        exposure_saturation=2.0,
+    )
+
+    hazard_without_shield = _hazard_with_fixed_other_factors(
+        exposure=exposure_without_shield,
+    )
+    hazard_with_shield = _hazard_with_fixed_other_factors(
+        exposure=exposure_with_shield,
+    )
+
+    assert exposure_with_shield < exposure_without_shield
+    assert (
+        hazard_with_shield["capture_hazard"]
+        < hazard_without_shield["capture_hazard"]
+    )
+
+
 def test_dispersion_increases_with_neighbor_distance() -> None:
     close_neighbors = calculate_dispersion(
         neighbor_count=2,
@@ -167,6 +228,24 @@ def test_isolated_fish_has_maximum_dispersion_score() -> None:
         mean_neighbor_distance=None,
         social_radius=100.0,
     ) == 1.0
+
+
+def test_dispersion_alone_increases_capture_hazard() -> None:
+    low_dispersion = _hazard_with_fixed_other_factors(
+        dispersion=0.1,
+    )
+    high_dispersion = _hazard_with_fixed_other_factors(
+        dispersion=0.8,
+    )
+
+    assert (
+        high_dispersion["dispersion_multiplier"]
+        > low_dispersion["dispersion_multiplier"]
+    )
+    assert (
+        high_dispersion["capture_hazard"]
+        > low_dispersion["capture_hazard"]
+    )
 
 
 def test_cohesion_risk_increases_with_distance_from_group_center() -> None:
@@ -194,6 +273,24 @@ def test_isolated_fish_has_maximum_cohesion_risk_score() -> None:
     ) == 1.0
 
 
+def test_cohesion_alone_increases_capture_hazard() -> None:
+    good_cohesion = _hazard_with_fixed_other_factors(
+        cohesion=0.1,
+    )
+    poor_cohesion = _hazard_with_fixed_other_factors(
+        cohesion=0.8,
+    )
+
+    assert (
+        poor_cohesion["cohesion_multiplier"]
+        > good_cohesion["cohesion_multiplier"]
+    )
+    assert (
+        poor_cohesion["capture_hazard"]
+        > good_cohesion["capture_hazard"]
+    )
+
+
 def test_dilution_increases_with_neighbor_count() -> None:
     no_dilution = calculate_dilution(0, 4.0)
     some_dilution = calculate_dilution(2, 4.0)
@@ -202,6 +299,29 @@ def test_dilution_increases_with_neighbor_count() -> None:
     assert no_dilution == 0.0
     assert 0.0 < some_dilution < more_dilution
     assert more_dilution < 1.0
+
+
+def test_dilution_alone_reduces_capture_hazard() -> None:
+    no_dilution = calculate_dilution(
+        neighbor_count=0,
+        saturation=4.0,
+    )
+    more_dilution = calculate_dilution(
+        neighbor_count=4,
+        saturation=4.0,
+    )
+
+    hazard_without_dilution = _hazard_with_fixed_other_factors(
+        dilution=no_dilution,
+    )
+    hazard_with_dilution = _hazard_with_fixed_other_factors(
+        dilution=more_dilution,
+    )
+
+    assert (
+        hazard_with_dilution["capture_hazard"]
+        < hazard_without_dilution["capture_hazard"]
+    )
 
 
 def test_aligned_neighbors_create_more_confusion() -> None:
@@ -229,12 +349,74 @@ def test_aligned_neighbors_create_more_confusion() -> None:
     assert aligned_confusion > 0.0
 
 
+def test_alignment_affects_hazard_only_through_confusion() -> None:
+    target = make_fish(0, (500.0, 350.0), (100.0, 0.0))
+    predator = make_predator((550.0, 350.0))
+
+    aligned_neighbor = make_fish(
+        1,
+        (500.0, 360.0),
+        (100.0, 0.0),
+    )
+    misaligned_neighbor = make_fish(
+        1,
+        (500.0, 360.0),
+        (0.0, 100.0),
+    )
+
+    aligned_confusion = calculate_confusion(
+        target=target,
+        predator=predator,
+        neighbors=[aligned_neighbor],
+        distance_scale=50.0,
+        saturation=4.0,
+    )
+    misaligned_confusion = calculate_confusion(
+        target=target,
+        predator=predator,
+        neighbors=[misaligned_neighbor],
+        distance_scale=50.0,
+        saturation=4.0,
+    )
+
+    aligned_hazard = _hazard_with_fixed_other_factors(
+        confusion=aligned_confusion,
+    )
+    misaligned_hazard = _hazard_with_fixed_other_factors(
+        confusion=misaligned_confusion,
+    )
+
+    assert aligned_confusion > misaligned_confusion
+    assert (
+        aligned_hazard["capture_hazard"]
+        < misaligned_hazard["capture_hazard"]
+    )
+
+
 def test_crowding_increases_as_nearest_neighbor_gets_closer() -> None:
     spread_out = calculate_crowding(100.0, 15.0, 5.0)
     moderate = calculate_crowding(20.0, 15.0, 5.0)
     crowded = calculate_crowding(5.0, 15.0, 5.0)
 
     assert spread_out < moderate < crowded
+
+
+def test_crowding_increases_hazard_when_other_factors_are_equal() -> None:
+    lower_crowding = _hazard_with_fixed_other_factors(
+        crowding=0.1,
+    )
+    higher_crowding = _hazard_with_fixed_other_factors(
+        crowding=0.9,
+    )
+
+    assert (
+        higher_crowding["crowding_multiplier"]
+        > lower_crowding["crowding_multiplier"]
+    )
+    assert (
+        higher_crowding["capture_hazard"]
+        > lower_crowding["capture_hazard"]
+    )
 
 
 def test_capture_probability_increases_with_hazard() -> None:
@@ -308,41 +490,6 @@ def test_dispersion_and_poor_cohesion_increase_hazard() -> None:
     assert poor_social_state["dispersion_multiplier"] == 1.5
     assert poor_social_state["cohesion_multiplier"] == 1.5
     assert poor_social_state["capture_hazard"] == 9.0
-
-
-def test_crowding_increases_hazard_when_other_factors_are_equal() -> None:
-    shared_parameters = {
-        "baseline_hazard": 4.0,
-        "exposure": 0.5,
-        "dilution": 0.2,
-        "confusion": 0.3,
-        "exposure_strength": 1.5,
-        "dilution_strength": 0.35,
-        "confusion_strength": 0.35,
-        "crowding_strength": 0.75,
-        "dispersion": 0.2,
-        "cohesion": 0.2,
-        "dispersion_strength": 0.5,
-        "cohesion_strength": 0.5,
-    }
-
-    lower_crowding = calculate_capture_hazard(
-        **shared_parameters,
-        crowding=0.1,
-    )
-    higher_crowding = calculate_capture_hazard(
-        **shared_parameters,
-        crowding=0.9,
-    )
-
-    assert (
-        higher_crowding["crowding_multiplier"]
-        > lower_crowding["crowding_multiplier"]
-    )
-    assert (
-        higher_crowding["capture_hazard"]
-        > lower_crowding["capture_hazard"]
-    )
 
 
 def test_isolated_fish_has_higher_risk_than_socially_protected_fish() -> None:
