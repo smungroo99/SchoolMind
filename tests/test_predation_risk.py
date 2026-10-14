@@ -1,3 +1,4 @@
+
 import pygame
 
 from schoolmind.simulation.config import (
@@ -37,7 +38,6 @@ def make_fish(
         boundary_margin=100.0,
         random_perturbation=False,
     )
-
     fish.velocity = pygame.Vector2(
         velocity
     )
@@ -110,7 +110,6 @@ def test_front_neighbor_reduces_exposure() -> None:
         exposure_radius=100.0,
         exposure_saturation=2.0,
     )
-
     assert exposure < 1.0
 
 
@@ -130,11 +129,76 @@ def test_neighbor_behind_target_does_not_shield_predator_facing_side() -> None:
         (475.0, 350.0),
         (100.0, 0.0),
     )
-
     exposure = calculate_exposure(
         target=target,
         predator=predator,
         neighbors=[rear_neighbor],
+        exposure_radius=100.0,
+        exposure_saturation=2.0,
+    )
+
+    assert exposure == 1.0
+
+
+def test_neighbor_behind_predator_does_not_shield_target() -> None:
+    # Left to right: neighboring fish -- predator -- target.
+    target = make_fish(
+        0,
+        (525.0, 350.0),
+        (100.0, 0.0),
+    )
+
+    predator = make_predator(
+        (500.0, 350.0)
+    )
+
+    neighbor_behind_predator = make_fish(
+        1,
+        (475.0, 350.0),
+        (100.0, 0.0),
+    )
+
+    exposure_without_neighbor = calculate_exposure(
+        target=target,
+        predator=predator,
+        neighbors=[],
+        exposure_radius=100.0,
+        exposure_saturation=2.0,
+    )
+
+    exposure_with_neighbor = calculate_exposure(
+        target=target,
+        predator=predator,
+        neighbors=[neighbor_behind_predator],
+        exposure_radius=100.0,
+        exposure_saturation=2.0,
+    )
+
+    assert exposure_without_neighbor == 1.0
+    assert exposure_with_neighbor == exposure_without_neighbor
+
+
+def test_neighbor_off_predator_target_line_does_not_shield() -> None:
+    target = make_fish(
+        0,
+        (500.0, 350.0),
+        (100.0, 0.0),
+    )
+
+    predator = make_predator(
+        (550.0, 350.0)
+    )
+
+    neighbor_off_line = make_fish(
+        1,
+        (525.0, 365.0),
+        (100.0, 0.0),
+    )
+
+    exposure = calculate_exposure(
+        target=target,
+        predator=predator,
+        neighbors=[neighbor_off_line],
         exposure_radius=100.0,
         exposure_saturation=2.0,
     )
@@ -152,7 +216,6 @@ def test_dilution_increases_with_neighbor_count() -> None:
         neighbor_count=2,
         saturation=4.0,
     )
-
     more_dilution = calculate_dilution(
         neighbor_count=10,
         saturation=4.0,
@@ -173,7 +236,6 @@ def test_aligned_neighbors_create_more_confusion() -> None:
     predator = make_predator(
         (550.0, 350.0)
     )
-
     aligned_neighbor = make_fish(
         1,
         (500.0, 360.0),
@@ -193,7 +255,6 @@ def test_aligned_neighbors_create_more_confusion() -> None:
         distance_scale=50.0,
         saturation=4.0,
     )
-
     orthogonal_confusion = calculate_confusion(
         target=target,
         predator=predator,
@@ -212,7 +273,6 @@ def test_crowding_increases_as_nearest_neighbor_gets_closer() -> None:
         crowding_distance=15.0,
         crowding_scale=5.0,
     )
-
     moderate = calculate_crowding(
         nearest_neighbor_distance=20.0,
         crowding_distance=15.0,
@@ -233,7 +293,6 @@ def test_capture_probability_increases_with_hazard() -> None:
         capture_hazard=1.0,
         dt=1.0 / 60.0,
     )
-
     high_probability = calculate_capture_probability(
         capture_hazard=5.0,
         dt=1.0 / 60.0,
@@ -259,7 +318,6 @@ def test_capture_hazard_contains_four_social_multipliers() -> None:
         confusion_strength=0.35,
         crowding_strength=0.75,
     )
-
     assert result["exposure_multiplier"] == 2.5
     assert result["dilution_multiplier"] == 1.0
     assert result["confusion_multiplier"] == 1.0
@@ -277,7 +335,6 @@ def test_isolated_fish_has_higher_risk_than_socially_protected_fish() -> None:
     predator = make_predator(
         (550.0, 350.0)
     )
-
     isolated_target = make_fish(
         0,
         (500.0, 350.0),
@@ -299,7 +356,6 @@ def test_isolated_fish_has_higher_risk_than_socially_protected_fish() -> None:
         config=config,
         dt=1.0 / 60.0,
     )
-
     grouped_risk = calculate_capture_risk(
         target=isolated_target,
         predator=predator,
@@ -338,7 +394,6 @@ def test_extreme_crowding_increases_risk_relative_to_moderate_spacing() -> None:
         (500.0, 350.0),
         (100.0, 0.0),
     )
-
     moderate_neighbors = [
         make_fish(
             1,
@@ -356,7 +411,6 @@ def test_extreme_crowding_increases_risk_relative_to_moderate_spacing() -> None:
             (100.0, 0.0),
         ),
     ]
-
     crowded_neighbors = [
         make_fish(
             1,
@@ -374,7 +428,6 @@ def test_extreme_crowding_increases_risk_relative_to_moderate_spacing() -> None:
             (100.0, 0.0),
         ),
     ]
-
     moderate_risk = calculate_capture_risk(
         target=target,
         predator=predator,
@@ -396,7 +449,6 @@ def test_extreme_crowding_increases_risk_relative_to_moderate_spacing() -> None:
         config=config,
         dt=1.0 / 60.0,
     )
-
     assert (
         crowded_risk["crowding"]
         > moderate_risk["crowding"]
@@ -420,7 +472,6 @@ def test_capture_attempt_is_logged_when_capture_fails() -> None:
         config,
         seed=42,
     )
-
     fish = world.fish[0]
     predator = world.predators[0]
 
@@ -443,7 +494,6 @@ def test_capture_attempt_is_logged_when_capture_fails() -> None:
     attempt = (
         world.capture_attempts[0]
     )
-
     assert attempt["fish_id"] == fish.fish_id
     assert attempt["predator_id"] == predator.id
     assert attempt["captured"] is False
@@ -479,7 +529,6 @@ def test_successful_capture_is_logged_and_removed() -> None:
         510.0,
         350.0,
     )
-
     world._handle_captures()
 
     assert len(

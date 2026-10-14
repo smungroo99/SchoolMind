@@ -1,3 +1,4 @@
+
 import math
 from statistics import mean
 from typing import Any
@@ -45,7 +46,6 @@ def _get_neighbors(
     radius: float,
 ) -> list[Fish]:
     neighbors: list[Fish] = []
-
     for fish in all_fish:
         if fish is target:
             continue
@@ -80,7 +80,6 @@ def _calculate_local_social_state(
         )
         for neighbor in neighbors
     ]
-
     nearest_neighbor_distance = min(
         distances
     )
@@ -102,7 +101,6 @@ def _calculate_local_social_state(
                     neighbor.velocity,
                 )
             )
-
             alignment_scores.append(
                 (cosine_similarity + 1.0) / 2.0
             )
@@ -125,7 +123,6 @@ def _calculate_local_social_state(
             local_center
         )
     )
-
     return {
         "neighbor_count": len(neighbors),
         "nearest_neighbor_distance": (
@@ -151,12 +148,14 @@ def calculate_exposure(
     """
     Estimate how exposed a target fish is to a predator.
 
-    A neighbor only contributes shielding when it lies in the
-    predator-facing hemisphere of the target.
+    A neighbor contributes shielding only when:
+    - Its center lies between the target and predator.
+    - Its body intersects the direct line between them.
+    - It is within the configured exposure radius of the target.
 
     A fish with no nearby shielding fish has exposure near 1.
-    A fish surrounded by nearby fish between itself and the
-    predator has lower exposure.
+    Nearby fish that genuinely obstruct the predator's view
+    reduce exposure.
 
     Returns a value in [0, 1].
     """
@@ -170,15 +169,16 @@ def calculate_exposure(
             "exposure_saturation must be greater than zero."
         )
 
-    attack_direction = (
+    # Direction from the target toward the predator.
+    target_to_predator = (
         predator.position - target.position
     )
+    predator_distance = target_to_predator.length()
 
-    if attack_direction.length_squared() == 0:
+    if predator_distance == 0:
         return 1.0
 
-    attack_direction = attack_direction.normalize()
-
+    attack_direction = target_to_predator.normalize()
     shielding_signal = 0.0
 
     for neighbor in neighbors:
@@ -190,30 +190,67 @@ def calculate_exposure(
         if distance == 0 or distance > exposure_radius:
             continue
 
-        neighbor_direction = offset.normalize()
-
-        facing_alignment = attack_direction.dot(
-            neighbor_direction
+        # Project the neighbor onto the line from the target
+        # toward the predator. Its center must be between
+        # the target and predator, not behind the predator.
+        projection_distance = offset.dot(
+            attack_direction
         )
 
-        if facing_alignment <= 0:
+        if (
+            projection_distance <= 0
+            or projection_distance >= predator_distance
+        ):
             continue
+
+        # Measure the perpendicular distance from the
+        # neighbor's center to the predator-target line.
+        perpendicular_offset = (
+            offset
+            - attack_direction * projection_distance
+        )
+        perpendicular_distance = (
+            perpendicular_offset.length()
+        )
+
+        # The neighboring fish can shield the target only
+        # if its body intersects the predator-target line.
+        blocking_radius = float(neighbor.radius)
+
+        if blocking_radius <= 0:
+            if perpendicular_distance > 1e-9:
+                continue
+            line_weight = 1.0
+        else:
+            if perpendicular_distance >= blocking_radius:
+                continue
+
+            # Shielding decreases smoothly as the neighbor's
+            # center approaches the edge of its blocking radius.
+            line_weight = (
+                1.0
+                - perpendicular_distance / blocking_radius
+            )
+
+        # Alignment of the target-to-neighbor direction
+        # with the target-to-predator direction.
+        facing_alignment = (
+            projection_distance / distance
+        )
 
         proximity_weight = max(
             0.0,
-            1.0 - (
-                distance / exposure_radius
-            ),
+            1.0 - distance / exposure_radius,
         )
 
         shielding_signal += (
             facing_alignment
             * proximity_weight
+            * line_weight
         )
 
     shielding = 1.0 - math.exp(
-        -shielding_signal
-        / exposure_saturation
+        -shielding_signal / exposure_saturation
     )
 
     return _clamp(
@@ -239,7 +276,6 @@ def calculate_dilution(
 
     if neighbor_count <= 0:
         return 0.0
-
     return _clamp(
         1.0 - math.exp(
             -neighbor_count / saturation
@@ -256,7 +292,6 @@ def calculate_confusion(
 ) -> float:
     """
     Estimate predator target ambiguity created by nearby fish.
-
     A neighboring fish contributes more when:
     - it is close to the target,
     - it is moving similarly to the target,
@@ -295,7 +330,6 @@ def calculate_confusion(
                 neighbor.position
             )
         )
-
         if target_distance == 0:
             continue
 
@@ -370,7 +404,6 @@ def calculate_crowding(
         raise ValueError(
             "crowding_distance cannot be negative."
         )
-
     if crowding_scale <= 0:
         raise ValueError(
             "crowding_scale must be greater than zero."
@@ -407,7 +440,6 @@ def calculate_capture_hazard(
     Combine the four independent social-risk mechanisms.
 
     The resulting hazard is:
-
         baseline
         * exposure multiplier
         * dilution multiplier
@@ -426,7 +458,6 @@ def calculate_capture_hazard(
         1.0
         + exposure_strength * exposure
     )
-
     dilution_multiplier = max(
         0.1,
         1.0
@@ -451,7 +482,6 @@ def calculate_capture_hazard(
         * confusion_multiplier
         * crowding_multiplier
     )
-
     return {
         "exposure_multiplier": (
             exposure_multiplier
@@ -488,7 +518,6 @@ def calculate_capture_probability(
         raise ValueError(
             "dt must be greater than zero."
         )
-
     return _clamp(
         -math.expm1(
             -capture_hazard * dt
@@ -520,7 +549,6 @@ def calculate_capture_risk(
         target=target,
         neighbors=neighbors,
     )
-
     exposure = calculate_exposure(
         target=target,
         predator=predator,
@@ -541,7 +569,6 @@ def calculate_capture_risk(
             config.predation_dilution_saturation
         ),
     )
-
     confusion = calculate_confusion(
         target=target,
         predator=predator,
@@ -553,7 +580,6 @@ def calculate_capture_risk(
             config.predation_confusion_saturation
         ),
     )
-
     crowding = calculate_crowding(
         nearest_neighbor_distance=(
             social_state[
@@ -567,7 +593,6 @@ def calculate_capture_risk(
             config.predation_crowding_scale
         ),
     )
-
     hazard_components = calculate_capture_hazard(
         baseline_hazard=(
             config.predation_baseline_hazard
@@ -589,7 +614,6 @@ def calculate_capture_risk(
             config.predation_crowding_strength
         ),
     )
-
     capture_hazard = hazard_components[
         "capture_hazard"
     ]
@@ -600,7 +624,6 @@ def calculate_capture_risk(
             dt=dt,
         )
     )
-
     return {
         "predator_distance": (
             predator.position.distance_to(
